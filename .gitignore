@@ -9,4 +9,17 @@ data/
 cache/
 runs/
 private/
+secrets/
+codex-profile/
+uploads/
+reports/
+job-workspaces/
+archive-staging/
+restore-cache/
+backup-staging/
+backups/
+compose.env
+auth.json
+*.dump
+*.aesgcm
 *.zip

@@ -12,7 +12,8 @@ from .signals import record_signals
 from .storage import read_json
 
 
-def daily(state, rules, now=None, offline=False, with_research=True, recheck_research=False):
+def daily(state, rules, now=None, offline=False, with_research=True, recheck_research=False,
+          register_signals=True, knowledge_cutoff=None, progress_callback=None):
     session = expected_session(now, rules.settlement_minutes)
     sessions = sessions_ending(session, rules.history_sessions)
     stamp = utc_now().strftime("%Y%m%dT%H%M%S%fZ")
@@ -29,6 +30,9 @@ def daily(state, rules, now=None, offline=False, with_research=True, recheck_res
                   "Split-adjusted data excludes dividends. Relative strength is excess price change over the same window.",
                   "The listing snapshot is for the data date, not a delisted-company database; it cannot establish backtest performance."]}
     results = []
+    if knowledge_cutoff:
+        report["knowledge_cutoff"] = knowledge_cutoff
+        report["warnings"].append("Historical snapshot: news/filings use the dated cutoff and a separate cache. Provider-dated descriptions and subsequently revised source records are not a certified information-as-known archive.")
     try:
         evidence = state / "live-consistency.json"
         if evidence.exists():
@@ -46,7 +50,7 @@ def daily(state, rules, now=None, offline=False, with_research=True, recheck_res
             client = Client(state)
             listing = universe(client, session)
             split_snapshot = splits(client, sessions[0], session)
-            ensure_grouped(client, sessions)
+            ensure_grouped(client, sessions, progress=progress_callback or print)
         if listing.get("as_of") != session or split_snapshot.get("first") != sessions[0] or split_snapshot.get("last") != session:
             raise ValueError("Listing/split cache does not match the requested session window")
         metadata_rows, excluded = classify_universe(listing)
@@ -91,7 +95,7 @@ def daily(state, rules, now=None, offline=False, with_research=True, recheck_res
                 report["candidates"] = sorted((r for r in results if r["eligible"]), key=rank, reverse=True)
                 report["near_breakouts"] = sorted((r for r in results if r["near_breakout"]), key=rank, reverse=True)
                 if with_research and client is not None:
-                    researcher = Researcher(client, session, recheck_research)
+                    researcher = Researcher(client, session, recheck_research, knowledge_cutoff=knowledge_cutoff)
                     for result in report["candidates"][:rules.research_limit]:
                         report["research"][result["symbol"]] = researcher.candidate(result)
                     report["liquidity_examples"] = researcher.liquidity_examples(results, metadata)
@@ -102,7 +106,8 @@ def daily(state, rules, now=None, offline=False, with_research=True, recheck_res
                         report["liquidity_examples"].append({"symbol": r["symbol"], "name": r["name"],
                             "avg_volume_50": r["avg_volume_50"], "avg_dollar_volume_50": r["avg_dollar_volume_50"],
                             "liquidity_failures": [k for k in r["failed_filters"] if k in {"average_share_volume", "average_dollar_volume"}]})
-                record_signals(state, report)
+                if register_signals:
+                    record_signals(state, report)
     except ProviderError as e:
         report["status"] = "blocked_provider"
         report["errors"].append(e.as_dict())

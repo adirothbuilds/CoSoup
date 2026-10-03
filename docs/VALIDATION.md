@@ -1,62 +1,43 @@
-# Validation evidence
+# Validation
 
-Validated in the current cloud instance on 2026-10-03. This documents actual outcomes, not a promise of future restoration or uninterrupted scheduled operation. Provider data, generated reports, credentials, private addresses and the signal database remain outside the repository.
+## Reproducible checks
 
-## Software and environment
+Run the scanner regression suite independently of optional server dependencies:
 
-- Python 3.12.14; the pinned dependencies in `requirements.txt` installed successfully in `.venv`.
-- `python -m unittest discover -v`: **49 tests passed**, with no skips or expected failures. Tests cover the exchange calendar, early closes, split-adjusted prices and volumes, prior-window calculations, security classification, quality failures, incomplete coverage, secret redaction, destination restrictions, persistent rate limiting, resumable ingestion, SEC parsing, signal observations and delivery/scheduler idempotency.
-- The saved setup commands were executed in this instance and repeated successfully. Dependency consistency and source compilation passed.
-- The systemd timer syntax was verified. The service was not installed or executed on a durable host; SMTP transmission was not tested or activated.
+```sh
+.venv/bin/python -m unittest discover -s tests -v
+```
 
-## Real provider access and complete market scan
+Install `apps/server/requirements.txt`, then run:
 
-The existing Massive credential successfully accessed dated listings, split events, grouped daily US market summaries and individual SPY/IWM histories. No plan was upgraded.
+```sh
+.venv/bin/python -m unittest discover -s apps/server/tests -v
+```
 
-The exact 260-session window was **2025-09-22 through 2026-10-02**. All market-wide daily snapshots were downloaded and cached. Subsequent ingestion reused the complete cache without changing the request-rate ledger, demonstrating zero additional provider calls. Incomplete or corrupt caches are separately covered by resume tests.
+Server tests cover API ownership/authentication, range planning, durable job leases/idempotency, scheduler holidays/DST, portfolio arithmetic and corrections, reviewed imports, reservations and encrypted archive verification/restore. Fake object stores and analysts exercise adapters without claiming live R2 or model access.
 
-Final daily coverage:
+Validate Docker configuration and build the service image. On a private test deployment, execute migrations, authenticate through HTTP, submit a scan and inspect its persisted report/coverage. Restart a worker to check checkpoint recovery. Validate actual R2 upload/read/hash/restore and dedicated Codex isolation/authentication before enabling their production workflows. Test consistent database backup restoration on an empty instance before enabling eviction.
 
-| Measure | Actual result |
-| --- | ---: |
-| Provider listings | 13,258 |
-| Selected equities evaluated | 5,559 |
-| Common shares | 5,182 |
-| Common ADRs | 377 |
-| Eligible-type names excluded conservatively | 140 |
-| Valid histories | 4,553 |
-| Insufficient histories | 599 |
-| Unexpected data errors | 407 |
-| Stale / missing sessions / missing data | 126 / 278 / 3 |
-| Passing candidates | 2 |
-| Near-breakout watchlist | 50 |
+Actual source checks should compare SPY and IWM against independent histories across the entire configured window. Grouped and ticker-history endpoint volumes can differ; use a consistent volume source and preserve differences as evidence. Check forward/reverse splits with real corporate actions and synthetic price-times-volume invariance.
 
-The result is **`partial_coverage`**, not a fully clean market scan. Unexpected data errors affected about 7.32% of the selected universe, below the configured 10% blocking threshold. All individual results, dates and failed filters are preserved privately. Stocks are not selected by sector or company size; the universe does not establish a fully verified sector classification. LP/unit and fund names classified as common by the provider are excluded conservatively.
+A passing unit suite cannot establish provider entitlements, historical depth, licensing, durable host operation or mail receipt. Classify passed, failed, blocked and unrun checks separately. Validation provenance belongs in the appendix rather than installation/product documentation.
 
-SPY and IWM each passed full-window validation with 260 observations. Independent ticker-history checks matched grouped OHLC exactly across all 260 sessions. Endpoint volumes were **not identical**: maximum relative differences were approximately 1.8242% for SPY and 1.6899% for IWM, affecting 53 and 55 sessions respectively. This remains a report warning. Screening consistently uses grouped daily volume for all securities rather than mixing endpoints.
+## Appendix: validation records
 
-A real NFLX 10-for-1 split on 2025-11-17 was checked over a 135-session subwindow. Local split-adjusted prices matched the provider's adjusted history within approximately 4.44e-7 relative error; volume differed by up to approximately 0.1097% between endpoints. Unit tests independently verify price-times-volume invariance for forward and reverse splits. These checks do not certify every provider corporate action.
+The initial scanner validation used Python 3.12 on an x86_64 Linux cloud runner. Its 49 regression tests passed. A real 260-session window, 2025-09-22 through 2026-10-02, was cached and scanned. The scan evaluated 5,559 equities with 4,553 valid histories, 599 insufficient histories and 407 data errors; its quality was `partial_coverage`.
 
-## Research limitations and exact access failures
+SPY/IWM OHLC matched independent histories over all 260 sessions. Maximum volume differences were approximately 1.8242% and 1.6899%, across 53 and 55 sessions. A real NFLX 10-for-1 split was checked; prices matched within approximately 4.44e-7 relative error in a 135-session subwindow. These are bounded checks, not certification of every provider record.
 
-Current issuer descriptions and indexed news were retrieved for the two candidates. Sourced small/mid-cap examples demonstrate that a stock can pass the share-volume floor while failing the dollar-volume floor. Primary linked articles and filings were not all independently retrieved; reports distinguish provider observations from unread primary-source links.
+During that validation, the supported financial and earnings endpoints returned HTTP 403 entitlement denials. The free primary-source and terms-site checks were blocked by proxy policy. They did not establish current debt, cash flow, earnings or distribution rights. No paid upgrade was performed.
 
-The supported financial endpoints `/stocks/financials/v1/balance-sheets`, `/stocks/financials/v1/cash-flow-statements`, and `/benzinga/v1/earnings` each returned:
+Server implementation validation on 2026-10-03 used Python 3.12, Docker Engine 28.4, Compose 2.40.3 and PostgreSQL 17 on the same x86_64 Linux runner. The 49 scanner regression tests and 34 server tests passed (83 total). Server tests included actual Tesseract image extraction, FIFO/corrections/atomic oversell rejection, market-close valuation, invalid bars, missing split reconciliation, independent archive recovery, cancellation of a database-dump child, encrypted round trips and failure retention. Object-store/model tests used fixtures, not external credentials.
 
-> HTTP 403: You are not entitled to this data. Please upgrade your plan at https://massive.com/pricing
+The base and optional Codex Docker targets built with TLS/signature verification intact. The build runner required its existing outbound proxy, an explicit DNS mapping and a mounted public CA certificate; these were build-only inputs, not repository credentials or disabled verification. Compose syntax passed. A later rebuild exhausted the runner's 32 GB overlay with Docker VFS snapshots: npm emitted `ENOSPC` while exiting successfully. The affected image was discarded; known superseded images and unused reproducible build cache were removed without touching volumes or private source data. The exact Codex stage was then rebuilt against the verified server image, and its newly required build-time `codex --version` check passed. Real PostgreSQL migrations/service-role grants, authenticated host HTTP requests and eight simultaneous distinct queue claims passed. A private Compose deployment ran the API, scheduler and scanner/import/storage workers. A one-shot schedule executed through its worker and remained a single persisted occurrence after scheduler restart; the completed scan also survived service recreation. Adding a separate API ingress bridge fixed host port publication when the API was otherwise attached only to an internal bridge.
 
-No upgrade or repeated entitlement retry was performed. The older `/vX/reference/financials` route returned HTTP 410 during validation; final code does not call it. Any already-cached historical financial facts are labelled archival and do not satisfy current debt, cash-flow or dilution review.
+Through HTTP and the scanner worker, an exact-cache historical snapshot for 2026-10-02 used all 260 real market sessions. It persisted JSON/Markdown with `partial_coverage`, 5,559 selected equities and AVT/ARW as two candidates. It registered two reconstructed signals and zero live signals. Historical weekly generation declared the four absent daily reports. CSV upload/extraction left the fixture journal unchanged pending review; repeated explicit confirmation returned the same transaction IDs and FIFO positions. Portfolio valuation used cached same-date SPY bars. Those journal inputs were synthetic integration fixtures, not the owner's actual account.
 
-The free SEC companyfacts fallback is implemented and unit-tested. Real requests to `data.sec.gov`, issuer investor-relations sites and the provider terms site were blocked with:
+A consistent PostgreSQL custom dump was generated by the storage worker, encrypted into an archive and verified through a local fixture object store. Independent recovery without the catalog also unpacked the encrypted real dump and passed `pg_restore --list`. The dump restored successfully into a new PostgreSQL database, preserving the expected report, transaction, signal and schema counts. This validates logical backup/restore and the packaging path; it does not establish an actual R2 transfer, disaster recovery of post-backup records, or home-host quota enforcement.
 
-> Tunnel connection failed: 403 Forbidden
+The dedicated image reported `codex-cli 0.160.0` and supported the configured terminal flags. Its namespace probe failed with: `bwrap: No permissions to create new namespace, likely because the kernel does not allow non-privileged user namespaces.` Codex remained disabled; no authenticated model task ran and no isolation bypass was used. Its real tool sandbox, dedicated-auth protection and host kernel compatibility remain unverified.
 
-Consequently current debt, cash flow, dilution, the next confirmed earnings date and a verified breakout catalyst remain gaps. Terms were not read successfully, and distribution rights have not been established. Raw data and derived reports have not been published. Apply the saved public-site network settings before an explicit `daily --recheck-research`; runtime access has not been verified after applying those settings.
-
-## Weekly monitoring, delivery and persistence
-
-The weekly summary uses one actual daily data date. Four preceding sessions in that week have no daily report and are explicitly marked missing. Both actual signals are awaiting follow-up; no historical price change or trading return was fabricated. Repeated daily scans did not duplicate signal rows.
-
-Saved configuration includes the tested installation script, startup instructions, private recipient requirement, disabled mail setting and public-source network domains. Saving the draft does not apply runtime access or publish a cloud snapshot. Fresh-task restoration has not been tested.
-
-External durable scheduling and private SMTP settings are still required. Templates and an idempotent scheduling entrypoint are prepared, but no timer or cron was activated in this temporary development instance and no email was sent. At the end of validation, no commit, push or pull request had been created. Publication requires the user's explicit approval and their Git identity; the user subsequently approved direct publication to main under the MIT License.
+No real R2 credentials/bucket, SMTP delivery or 200 GB filesystem quota were connected. A durable home-host deployment, live R2 upload/read/hash/restore, licensing review and authorized Codex sandbox/authentication are outstanding deployment checks. Temporary test processes do not establish continuous scheduling.

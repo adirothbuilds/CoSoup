@@ -33,16 +33,21 @@ def filing_source(value, fallback, cik=None):
 
 
 class Researcher:
-    def __init__(self, client, as_of, recheck=False):
+    def __init__(self, client, as_of, recheck=False, knowledge_cutoff=None):
         self.client, self.as_of = client, as_of
         self.blocked, self.errors = {}, []
         self.recheck = recheck
+        self.knowledge_cutoff = knowledge_cutoff
+        self.cache_scope = as_of
+        if knowledge_cutoff:
+            import hashlib
+            self.cache_scope += "/historical-" + hashlib.sha256(knowledge_cutoff.encode()).hexdigest()[:16]
 
     def request(self, category, symbol, path, params=None):
-        cache = self.client.state / "raw" / "research" / self.as_of / (quote(symbol, safe="") + "_" + category + ".json.gz")
+        cache = self.client.state / "raw" / "research" / self.cache_scope / (quote(symbol, safe="") + "_" + category + ".json.gz")
         if cache.exists():
             return read_json(cache)
-        blocked = self.client.state / "raw" / "research" / self.as_of / ("_blocked_" + category + ".json")
+        blocked = self.client.state / "raw" / "research" / self.cache_scope / ("_blocked_" + category + ".json")
         if blocked.exists() and not self.recheck:
             error = read_json(blocked)
             if error not in self.errors: self.errors.append(error)
@@ -93,7 +98,13 @@ class Researcher:
             if not details.get("description"):
                 missing.append("No company activity description is available from this source")
 
-        now = utc_now()
+        if self.knowledge_cutoff:
+            from datetime import datetime
+            now = datetime.fromisoformat(self.knowledge_cutoff)
+            if now.tzinfo is None:
+                raise ValueError("Research knowledge cutoff must include a timezone")
+        else:
+            now = utc_now()
         news = self.request("news", symbol, "/v2/reference/news",
                             {"ticker": symbol, "published_utc.gte": (now-timedelta(days=60)).isoformat(),
                              "published_utc.lte": now.isoformat(), "limit": 5, "sort": "published_utc", "order": "desc"})
@@ -115,8 +126,9 @@ class Researcher:
                   "sort": "period_end.desc", "limit": 2}
         balance = self.request("balance_sheet", symbol, "/stocks/financials/v1/balance-sheets", params)
         cash = self.request("cash_flow", symbol, "/stocks/financials/v1/cash-flow-statements", params)
-        calendars = self.request("earnings", symbol, "/benzinga/v1/earnings",
-                                 {"ticker": symbol, "date.gte": now.date().isoformat(), "limit": 1, "sort": "date.asc"})
+        calendars = {"error": "Historical earnings-calendar knowledge is not established"} if self.knowledge_cutoff else self.request(
+            "earnings", symbol, "/benzinga/v1/earnings",
+            {"ticker": symbol, "date.gte": now.date().isoformat(), "limit": 1, "sort": "date.asc"})
         modern_fields = {
             "balance_sheet": (balance, {"debt_current": "Current debt", "long_term_debt_and_capital_lease_obligations": "Long-term debt and capital leases", "cash_and_equivalents": "Cash and equivalents"}),
             "cash_flow": (cash, {"net_cash_from_operating_activities": "Operating cash flow", "net_cash_from_financing_activities": "Financing cash flow"}),
@@ -163,7 +175,7 @@ class Researcher:
                     source = filing_source(metric.get("accession"), primary["source"], details.get("cik"))
                     fact(f"{metric['label']}: {metric['value']:,.0f} {metric['unit']}; period {metric.get('period_start')} through {metric['period_end']}; filed {metric['filing_date']}", primary, source)
         # Never call the deprecated /vX endpoint. Previously retrieved data is an archive only.
-        archived_path = self.client.state / "raw" / "research" / self.as_of / (quote(symbol, safe="") + "_financials.json.gz")
+        archived_path = self.client.state / "raw" / "research" / self.cache_scope / (quote(symbol, safe="") + "_financials.json.gz")
         if archived_path.exists() and not financial_observations:
             archive = read_json(archived_path)
             rows = archive.get("data", {}).get("results", [])

@@ -1,12 +1,12 @@
 # Calculation and reliability
 
-## Supplied baseline
+## Rule configuration
 
-Rules were adapted from `scanner.py` and `config.json` in the supplied ZIP. Its documentation, historical results and instructions were treated as input to review, not authority to use the prior provider or distribute data. Previous Yahoo failures are not validation evidence for this implementation. There is no yfinance dependency.
+`config.json` defines the default screening thresholds. The provider and calculations are implemented independently of the optional server application.
 
 ## Data and coverage
 
-The dated Massive listing query uses `market=stocks`, `locale=us`, `active=true`, and the data date, with complete pagination. Eligible types are `CS`, `OS`, `ADRC`, and `NYRS` on `XNAS`, `XNYS`, `XASE`, `ARCX`, `BATS`, and `IEXG`, in USD. Funds, ETFs, preferred shares, warrants, units, rights and other security types are excluded and counted by reason. Actual provider listings contained funds classified as CS, so a conservative security-name guard also excludes fund/unit/preferred/warrant/right/debt labels even when the type is common. LP/L.P. and limited-partnership names are also conservatively excluded: the supplied exchange directory identifies examples such as AB, ARLP and XIFR as units even when Massive labels them CS. This guard can omit ambiguous names and is reported separately; REIT common shares are retained. OTC and unidentified exchanges are outside coverage. Duplicate or empty listings fail validation. No sector or market-cap floor is imposed. Sector and cap metadata are not fetched for every stock, so the report does not claim a fully audited sector mapping.
+The dated Massive listing query uses `market=stocks`, `locale=us`, `active=true`, and the data date, with complete pagination. Eligible types are `CS`, `OS`, `ADRC`, and `NYRS` on `XNAS`, `XNYS`, `XASE`, `ARCX`, `BATS`, and `IEXG`, in USD. Funds, ETFs, preferred shares, warrants, units, rights and other security types are excluded and counted by reason. Actual provider listings contained funds classified as CS, so a conservative security-name guard also excludes fund/unit/preferred/warrant/right/debt labels even when the type is common. LP/L.P. and limited-partnership names are also conservatively excluded: the exchange directory identifies examples such as AB, ARLP and XIFR as units even when Massive labels them CS. This guard can omit ambiguous names and is reported separately; REIT common shares are retained. OTC and unidentified exchanges are outside coverage. Duplicate or empty listings fail validation. No sector or market-cap floor is imposed. Sector and cap metadata are not fetched for every stock, so the report does not claim a fully audited sector mapping.
 
 For each of 260 XNYS sessions, one unadjusted market-wide snapshot is stored (`adjusted=false`, `include_otc=false`) using atomic writes. A missing market day cannot silently pass. Split events are paginated for the entire window. For observations preceding a split execution date, prices are divided by `split_to/split_from` and share volume is multiplied by the same factor. The basis is the data date; later splits are excluded. Price-times-volume remains invariant. Reverse splits are handled identically. Invalid or ambiguous events reject the affected security. Dividends are not adjusted. Ticker changes, mergers and ADR ratio changes absent from the source can still impair coverage.
 
@@ -22,7 +22,7 @@ Defaults in `config.json`:
 - Current volume at least 1.5x the prior 50-session average.
 - Positive 63-session price change exceeding SPY over the identical dates.
 - Close above SMA50 above SMA200, with at least 220 consecutive recent observations.
-- At most 5% above the pivot and 15% above SMA50, preserving the supplied baseline.
+- At most 5% above the pivot and 15% above SMA50.
 - Separate near-breakout watchlist within 3% below the pivot. It must satisfy price, liquidity, trend and relative strength, but may lack breakout and volume confirmation.
 
 Candidates sort by excess price change versus SPY and then volume ratio. This is not a calibrated probability. All passing candidates are retained; detailed research defaults to the leading five. No arbitrary candidate count is filled.

@@ -1,0 +1,25 @@
+{
+  "name": "@stock-scanner/mobile",
+  "private": true,
+  "version": "0.2.0",
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start",
+    "ios": "expo run:ios",
+    "export": "expo export --platform ios --output-dir dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@stock-scanner/client": "0.2.0",
+    "@stock-scanner/design": "0.2.0",
+    "expo": "57.0.26",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "@tanstack/react-query": "5.104.1",
+    "expo-secure-store": "57.0.4",
+    "expo-document-picker": "57.0.3",
+    "expo-image-picker": "57.0.20",
+    "react-native-svg": "15.15.4",
+    "react-native-safe-area-context": "5.7.0"
+  }
+}

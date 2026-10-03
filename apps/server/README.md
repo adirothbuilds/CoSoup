@@ -4,6 +4,8 @@ An experimental FastAPI application for a private Debian home server. Docker Com
 
 All reports, API responses, code and documentation are English. There is no brokerage connection or order execution. The first release has one authenticated owner; private records carry owner IDs for future authentication adapters. It does not provide multiple-user login or separate owner-token scopes yet.
 
+The [React web workspace](../web/README.md) and [Expo iOS client](../mobile/README.md) use this API through shared transport/domain contracts. Root `make help` lists combined build/deployment operations. Browser sessions require a privately configured trusted HTTPS origin; native/automation requests retain Bearer authentication. Cached visual endpoints and the versioned context/vision contract are documented in [Agent API](../../docs/AGENT_API.md).
+
 ## Install and start
 
 Requirements: x86_64 Debian, Docker Engine with Compose v2, a correct host clock/NTP, and persistent private storage. Default service limits fit within 32 GB RAM; CPU/memory, polling, scheduling and storage settings can be changed. Docker/OS images need additional space beyond application data.

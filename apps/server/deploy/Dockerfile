@@ -22,7 +22,8 @@ RUN --mount=type=secret,id=build_ca,required=false,mode=0444 \
     python -m pip install -r apps/server/requirements.txt && python -m pip check
 COPY stock_scanner /app/stock_scanner
 COPY config.json scanner.py /app/
-COPY apps /app/apps
+COPY apps/__init__.py /app/apps/__init__.py
+COPY apps/server /app/apps/server
 RUN chmod -R a+rX /app && groupadd -g 10001 scanner && useradd -u 10001 -g scanner -M scanner
 USER 10001:10001
 ENTRYPOINT ["python", "-m", "apps.server"]

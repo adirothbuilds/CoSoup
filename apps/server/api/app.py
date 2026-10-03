@@ -5,6 +5,8 @@ import json
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
+from decimal import Decimal
+from datetime import date
 
 from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, Request, UploadFile
 from fastapi.openapi.docs import get_swagger_ui_html
@@ -27,10 +29,14 @@ from ..workers.scheduler.service import TASKS
 from ..workers.scheduler.triggers import next_occurrence, validate
 from .schemas import AgentRequest, AnalysisRequest, ConfirmImport, ImportRequest, PortfolioRequest, RestoreRequest, ScanRequest, ScheduleRequest, TransactionRequest, WeeklyRequest
 from .limits import BodyLimit
+from .sessions import BrowserSessions
+from .schemas import MovementRequest
+from ..services.market import bars as cached_bars, movement
+from ..services.agent_context import context_packet
 
 
 def view(row, fields):
-    return {name: getattr(row, name) for name in fields.split()}
+    return {name: str(value) if isinstance(value := getattr(row, name), Decimal) else value for name in fields.split()}
 
 
 def create_app(settings=None, database=None, token=None):
@@ -44,6 +50,14 @@ def create_app(settings=None, database=None, token=None):
     del token
     app = FastAPI(title="Private Stock Research Server", version="0.1.0", docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(BodyLimit, upload_bytes=settings.limits.upload_bytes)
+    sessions = BrowserSessions(settings, database, verifier)
+
+    @app.middleware("http")
+    async def private_responses(request, call_next):
+        response = await call_next(request)
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        return response
 
     @app.exception_handler(ServiceError)
     async def service_error(request, error):
@@ -55,6 +69,9 @@ def create_app(settings=None, database=None, token=None):
 
     def owner(request: Request):
         raw = request.headers.get("authorization", "")
+        if not raw:
+            sessions.read(request)
+            return settings.owner_id
         scheme, _, credential = raw.partition(" ")
         if scheme.lower() == "basic":
             try:
@@ -87,6 +104,34 @@ def create_app(settings=None, database=None, token=None):
         return {"job_id": row.id, "status": row.status, "status_url": f"/api/v1/jobs/{row.id}",
                 "events_url": f"/api/v1/jobs/{row.id}/events/stream"}
 
+    @app.post("/api/v1/auth/session")
+    def connect(request: Request, response: Response, principal=Depends(owner)):
+        return sessions.create(request, response)
+
+    @app.get("/api/v1/auth/session")
+    def session_info(request: Request):
+        data = sessions.read(request, mutation=False)
+        return {"owner_id":settings.owner_id,"expires_at":data["expires_at"],"csrf_token":data["csrf_token"]}
+
+    @app.delete("/api/v1/auth/session")
+    def disconnect(request: Request, response: Response):
+        return sessions.revoke(request,response)
+
+    @app.get("/api/v1/market/context")
+    def market_context(principal=Depends(owner)):
+        from stock_scanner.calendar import expected_session, next_run
+        return {"latest_session":expected_session(settlement_minutes=settings.settlement_minutes),
+                "next_run":next_run(settlement_minutes=settings.settlement_minutes),"market_timezone":"America/New_York"}
+
+    @app.get("/api/v1/market/tickers/{symbol}/bars")
+    def market_bars(symbol: str, start_date: date | None = None, end_date: date | None = None,
+                    principal=Depends(owner), db=Depends(db_session)):
+        return cached_bars(db,storage,current(db),principal,symbol,start_date.isoformat() if start_date else None,end_date.isoformat() if end_date else None)
+
+    @app.post("/api/v1/market/movement-snapshots")
+    def market_movement(request: MovementRequest, principal=Depends(owner), db=Depends(db_session)):
+        return movement(db,storage,current(db),principal,request)
+
     @app.get("/api/v1/health/live")
     def live():
         return {"status": "alive"}
@@ -112,7 +157,10 @@ def create_app(settings=None, database=None, token=None):
         cfg = current(db)
         return {"version": "0.1.0", "server_timezone": cfg.timezone, "market_timezone": "America/New_York",
                 "storage": Storage(cfg).status(db), "codex_enabled": cfg.codex_enabled,
-                "archive_configured": bool(cfg.r2_endpoint and cfg.r2_bucket)}
+                "archive_configured": bool(cfg.r2_endpoint and cfg.r2_bucket),
+                "capabilities": {"codex": "operator_verified" if cfg.codex_enabled and cfg.codex_sandbox_verified else "unverified" if cfg.codex_enabled else "disabled",
+                                 "archive": "configured_unverified" if cfg.r2_endpoint and cfg.r2_bucket else "disabled",
+                                 "mail": "unavailable", "browser_sessions": bool(cfg.browser_origin)}}
 
     @app.get("/api/v1/me")
     def me(principal=Depends(owner), db=Depends(db_session)):
@@ -499,16 +547,26 @@ def create_app(settings=None, database=None, token=None):
     @app.get("/api/v1/agent/profiles")
     def profiles(principal=Depends(owner)):
         return [{"id": "research-analyst", "enabled": settings.codex_enabled,
-                 "capabilities": ["daily_review", "weekly_review", "portfolio_review"], "writes_portfolio": False}]
+                 "ready": settings.codex_enabled and settings.codex_sandbox_verified,
+                 "capabilities": ["daily_review", "weekly_review", "portfolio_review", "document_review"], "writes_portfolio": False,
+                 "vision_media_types": ["image/png","image/jpeg"], "context_schema_version":1}]
+
+    @app.post("/api/v1/agent/context")
+    def agent_context(request: AgentRequest, principal=Depends(owner), db=Depends(db_session)):
+        return context_packet(db,storage,current(db),principal,request.model_dump(mode="json"))
 
     @app.post("/api/v1/agent/tasks", status_code=202)
     def agent(request: AgentRequest, principal=Depends(owner), db=Depends(db_session), key: str | None = Header(None, alias="Idempotency-Key")):
-        if not settings.codex_enabled:
+        if not settings.codex_enabled or not settings.codex_sandbox_verified:
             raise ServiceError("agent_disabled", "Codex is disabled until private authentication and sandbox verification are configured", 503)
         for identity in request.report_ids:
             owned(db, Report, identity, principal)
         if request.portfolio_id:
             owned(db, Portfolio, request.portfolio_id, principal)
+        for identity in request.upload_ids:
+            artifact = owned(db, Artifact, identity, principal)
+            if artifact.dataset != "uploads" or artifact.metadata_.get("media_type") not in {"image/png","image/jpeg"}:
+                raise ServiceError("unsupported_vision_media", "Vision accepts JPEG/PNG uploads", 422)
         return submitted(db, principal, "agent", request.model_dump(mode="json"), key)
 
     @app.get("/api/v1/agent/tasks/{identity}")

@@ -1,0 +1,26 @@
+{
+  "name": "@stock-scanner/web",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@stock-scanner/client": "0.2.0",
+    "@stock-scanner/design": "0.2.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "@tanstack/react-query": "5.104.1",
+    "@react-three/fiber": "9.8.1",
+    "three": "0.186.1",
+    "lightweight-charts": "5.2.1",
+    "lucide-react": "1.51.0"
+  },
+  "devDependencies": {
+    "vite": "8.3.2",
+    "@vitejs/plugin-react": "6.1.1"
+  }
+}

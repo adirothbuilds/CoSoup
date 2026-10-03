@@ -109,6 +109,38 @@ class AgentWorkerTests(ServerCase):
         execute_one('codex',lambda c: handle(c,FakeAnalyst()),self.database,self.settings)
         self.assertEqual(self.job(identity).error['code'],'portfolio_export_denied')
 
+    def test_vision_normalizes_authorized_image_and_removes_task_scratch(self):
+        from PIL import Image
+        from apps.server.workers.codex.handler import handle
+        source=self.storage.path('uploads/owner/image.png');source.parent.mkdir(parents=True,mode=0o700)
+        Image.new('RGB',(20,10),'white').save(source)
+        with self.database.session() as db:
+            a=self.storage.register(db,'owner',source,'uploads',{'media_type':'image/png'});identity=a.id
+        class VisionAnalyst(FakeAnalyst):
+            def analyze(adapter,workspace,request,checkpoint):
+                result=super().analyze(workspace,request,checkpoint)
+                image=adapter.inputs['images'][0]
+                with Image.open(workspace/image['workspace_file']) as decoded:
+                    self.assertEqual(decoded.mode,'RGB');self.assertEqual(decoded.size,(20,10))
+                self.assertIn(identity,adapter.inputs['source_ids'])
+                return result
+        request=AgentRequest(task_type='document_review',prompt='Read the authorized image',upload_ids=[identity],allow_uploaded_documents=True).model_dump(mode='json')
+        job=self.post_job('agent',request)
+        execute_one('codex',lambda c:handle(c,VisionAnalyst()),self.database,self.settings)
+        self.assertEqual(self.job(job).status,'succeeded',self.job(job).error)
+        self.assertFalse(list(self.storage.path('job-workspaces').glob(job+'-*')))
+        self.assertTrue(source.exists())
+
+    def test_vision_cli_uses_only_normalized_task_paths(self):
+        from apps.server.adapters.codex import CodexCLI
+        workspace=self.root/'task';workspace.mkdir();(workspace/'vision-0.png').write_bytes(b'fixture')
+        profile=self.root/'profile';profile.mkdir()
+        settings=self.settings.model_copy(update={'codex_enabled':True,'codex_sandbox_verified':True,'codex_profile_dir':profile})
+        with patch('shutil.which',return_value='/usr/bin/bwrap'):
+            command=CodexCLI(settings).command(workspace)
+        i=command.index('--image');self.assertEqual(command[i+1],'/work/vision-0.png')
+        self.assertNotIn('--dangerously-bypass-approvals-and-sandbox',command)
+
 
 class ExtractionTests(ServerCase):
     def test_real_image_ocr_produces_review_only_text(self):

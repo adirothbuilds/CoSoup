@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "Stock Scanner",
+    "slug": "stock-scanner",
+    "version": "0.2.0",
+    "orientation": "default",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.stockscanner.research",
+      "infoPlist": {"NSLocalNetworkUsageDescription": "Connect to your private home research server over LAN or VPN."}
+    },
+    "plugins": [
+      "expo-secure-store",
+      ["expo-image-picker", {"photosPermission": "Choose images for your reviewed portfolio import or authorized research task.", "cameraPermission": "Capture an image for your reviewed portfolio import or authorized research task.", "microphonePermission": false}]
+    ]
+  }
+}

@@ -5,10 +5,15 @@ Experimental personal research for US equity swing and medium/long-term opportun
 ## Applications
 
 - [`apps/server`](apps/server/README.md): authenticated FastAPI service, durable jobs and scheduling, configurable private storage/R2 archiving, portfolio journal, reviewed document imports and an optional dedicated Codex worker. Designed for Docker Compose on a home Debian server.
+- [`apps/web`](apps/web/README.md): responsive React research workspace, linked 3D movement and daily candles, portfolio/import review, history and operations.
+- [`apps/mobile`](apps/mobile/README.md): Expo/React Native iOS client with native charts, private Keychain credentials and photo/document workflows.
+- `packages/client` and `packages/design`: shared web/native transport contracts, metric/query helpers and design tokens.
 - `stock_scanner/`: reusable provider, calendar, quality checks, screening and source-research library.
 - `scanner.py`: standalone daily/weekly CLI. Its dependencies remain separate from the optional server dependencies.
 
 Every server worker has its own module under `apps/server/workers/`; extension contracts live under `apps/server/adapters/`. Additional applications can be added under `apps/`.
+
+Run `make help` for development, tests, web/iOS builds and Docker deployment. Development requires Python 3.12+ and Node 24 LTS. `make deploy` uses private host configuration and starts persistent services; `make ios-export` bundles native assets, while `make ios-build` requires a Mac with Xcode/signing. See the application guides before configuring private HTTPS and credentials.
 
 ## Standalone scanner
 

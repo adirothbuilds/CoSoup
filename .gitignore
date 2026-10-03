@@ -23,3 +23,11 @@ auth.json
 *.dump
 *.aesgcm
 *.zip
+node_modules/
+dist/
+.expo/
+playwright-report/
+test-results/
+ios/
+android/
+*.tsbuildinfo

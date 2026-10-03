@@ -29,3 +29,10 @@
 **/*.log
 **/*.dump
 **/*.aesgcm
+**/node_modules
+**/dist
+**/.expo
+**/test-results
+**/playwright-report
+**/ios
+**/android

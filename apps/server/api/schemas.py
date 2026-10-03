@@ -9,6 +9,14 @@ class Input(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class MovementRequest(Input):
+    scope: Literal["portfolio", "candidates", "near_breakouts"]
+    portfolio_id: str | None = None
+    report_id: str | None = None
+    data_date: date | None = None
+    period: Literal["1D", "1W", "1M"] = "1D"
+
+
 class ScanRequest(Input):
     mode: Literal["live", "historical_snapshot"] = "live"
     start_date: date | None = None
@@ -94,17 +102,23 @@ class RestoreRequest(Input):
 
 class AgentRequest(Input):
     profile_id: Literal["research-analyst"] = "research-analyst"
-    task_type: Literal["daily_review", "weekly_review", "portfolio_review"]
+    task_type: Literal["daily_review", "weekly_review", "portfolio_review", "document_review"]
     prompt: str = Field(min_length=1, max_length=8000)
     start_date: date | None = None
     end_date: date | None = None
     report_ids: list[str] = Field(default_factory=list, max_length=30)
     portfolio_id: str | None = None
     allow_portfolio_data: bool = False
+    upload_ids: list[str] = Field(default_factory=list, max_length=4)
+    allow_uploaded_documents: bool = False
     allow_current_web_research: Literal[False] = False
 
     @model_validator(mode="after")
     def scope(self):
+        if self.upload_ids and not self.allow_uploaded_documents:
+            raise ValueError("Uploaded document export needs explicit permission")
+        if self.task_type == "document_review" and not self.upload_ids:
+            raise ValueError("Document review requires an authorized image")
         if self.task_type == "portfolio_review" and (not self.portfolio_id or not self.allow_portfolio_data):
             raise ValueError("Portfolio review needs an explicit portfolio and data-export permission")
         if self.portfolio_id and not self.allow_portfolio_data:

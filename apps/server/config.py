@@ -50,6 +50,9 @@ class Settings(BaseModel):
     database_user: str = "scanner_api"
     database_password_file: Path = Path("/run/secrets/database_password")
     api_token_file: Path = Path("/run/secrets/api_token")
+    browser_origin: str | None = None
+    browser_secure_cookie: bool = True
+    browser_session_hours: int = Field(12, ge=1, le=168)
     poll_seconds: float = Field(5, gt=0)
     lease_seconds: int = Field(120, ge=10)
     max_job_attempts: int = Field(3, ge=1, le=10)
@@ -85,6 +88,16 @@ class Settings(BaseModel):
         import re
         if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", self.owner_id):
             raise ValueError("Invalid owner ID")
+        if self.browser_origin:
+            from urllib.parse import urlsplit
+            origin = urlsplit(self.browser_origin)
+            if origin.username or origin.password or origin.path or origin.query or origin.fragment or not origin.hostname:
+                raise ValueError("Browser origin must contain only scheme, host and optional port")
+            if self.browser_secure_cookie:
+                if origin.scheme != "https":
+                    raise ValueError("Browser sessions require an HTTPS origin")
+            elif origin.scheme != "http" or origin.hostname not in {"localhost", "127.0.0.1", "::1"}:
+                raise ValueError("Insecure development sessions are limited to an explicit loopback HTTP origin")
         if self.r2_endpoint:
             from urllib.parse import urlsplit
             u = urlsplit(self.r2_endpoint)

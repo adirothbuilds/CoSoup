@@ -1,0 +1,22 @@
+[Unit]
+Description=Personal close-aware US stock research
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=scanner
+Group=scanner
+WorkingDirectory=/opt/stock-scanner
+EnvironmentFile=/etc/stock-scanner/private.env
+Environment=SCANNER_STATE_DIR=/var/lib/stock-scanner
+ExecStart=/opt/stock-scanner/.venv/bin/python /opt/stock-scanner/scanner.py scheduled --send
+StateDirectory=stock-scanner
+StateDirectoryMode=0700
+TimeoutStartSec=7200
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/stock-scanner

@@ -1,0 +1,11 @@
+[Unit]
+Description=Check stock research after completed US market sessions
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=15min
+AccuracySec=30s
+Unit=stock-scanner.service
+
+[Install]
+WantedBy=timers.target

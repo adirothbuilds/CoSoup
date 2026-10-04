@@ -49,6 +49,8 @@ The 3D renderer loads on demand, uses a fixed camera and has a complete list fal
 
 Home exposes JSON and Markdown reports and a date-coverage preview before scan submission. Offline defaults require existing dated inputs; online runs fetch only missing days under the shared provider rate limiter. Historical/live signals remain labeled separately in report content. Full rejected-security detail remains a server extension; aggregate filtering reasons and research gaps are available now.
 
+If a scan fails with `scan_blocked`, open its Activity entry and inspect **Scan diagnostics** for the saved report's status and exact errors. This also works for existing failed jobs whose progress does not contain a report ID. Resolve the reported source/cache/quality issue before resuming; a blocked report does not establish an absence of opportunities.
+
 Portfolio supports actual entries, unknown opening basis, fees, splits and auditable corrections. Imports accept CSV, JPEG/PNG and PDF, display source evidence/proposals, and require explicit confirmation of edited rows. The review editor is currently structured JSON, including unresolved fields; a richer row editor is a future UX improvement. No extracted or model-proposed record is automatically applied.
 
 Activity follows persisted jobs/events, cancels cooperatively and resumes stopped work explicitly after its cause is resolved. SSE refreshes job state, with bounded polling fallback and refresh on visibility restoration. Lists paginate in batches of 100; event responses show their bounded first page and expose the API cursor for later history.

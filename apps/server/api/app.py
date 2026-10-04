@@ -283,10 +283,12 @@ def create_app(settings=None, database=None, token=None):
         return StreamingResponse(generate(), media_type="text/event-stream", headers={"Cache-Control": "no-store"})
 
     @app.get("/api/v1/reports")
-    def reports(mode: str | None = None, limit: int = Query(100, ge=1, le=500), offset: int = Query(0, ge=0), principal=Depends(owner), db=Depends(db_session)):
+    def reports(mode: str | None = None, job_id: str | None = None, limit: int = Query(100, ge=1, le=500), offset: int = Query(0, ge=0), principal=Depends(owner), db=Depends(db_session)):
         q = select(Report).where(Report.owner_id == principal)
         if mode:
             q = q.where(Report.mode == mode)
+        if job_id:
+            q = q.where(Report.job_id == job_id)
         return [view(r, "id job_id data_date mode quality artifact_id markdown_id summary") for r in db.scalars(q.order_by(Report.data_date.desc()).limit(limit).offset(offset))]
 
     @app.get("/api/v1/reports/{identity}")

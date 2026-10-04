@@ -33,6 +33,11 @@ class ScannerWorkerTests(ServerCase):
         execute_one('scanner', lambda c: scan(c,adapter), self.database, self.settings)
         self.assertEqual(self.job(identity).status,'failed')
         self.assertEqual(self.job(identity).progress['completed_sessions'],['2026-09-30'])
+        reports = self.client.get('/api/v1/reports', params={'job_id': identity}).json()
+        self.assertEqual(len(reports), 2)
+        self.assertEqual(set(self.job(identity).progress['report_ids']), {report['id'] for report in reports})
+        blocked = next(report for report in reports if report['quality'].startswith('blocked'))
+        self.assertEqual(blocked['summary']['errors'], [{'http_status':403, 'message':'Not entitled'}])
         self.client.post(f'/api/v1/jobs/{identity}/resume')
         adapter.block = None
         execute_one('scanner', lambda c: scan(c,adapter), self.database, self.settings)
@@ -42,6 +47,23 @@ class ScannerWorkerTests(ServerCase):
             self.assertEqual(len(list(db.scalars(select(Signal)))),3)
             self.assertEqual(set(db.scalars(select(Signal.mode))), {'historical_snapshot'})
             self.assertEqual(len(list(db.scalars(select(Report)))),3)
+            self.assertEqual(set(self.job(identity).progress['report_ids']), set(db.scalars(select(Report.id))))
+
+    def test_failed_scan_reports_are_filtered_by_job_and_owner(self):
+        from apps.server.workers.scanner.handler import scan
+        adapter = FakeScanner()
+        request = {'mode':'historical_snapshot','start_date':'2026-10-01','end_date':'2026-10-01','research':'none'}
+        identity = self.post_job('scan', request)
+        execute_one('scanner', lambda c: scan(c,adapter), self.database, self.settings)
+        other = self.post_job('scan', request)
+        execute_one('scanner', lambda c: scan(c,adapter), self.database, self.settings)
+        reports = self.client.get('/api/v1/reports', params={'job_id': identity}).json()
+        self.assertEqual(len(reports), 1)
+        self.assertEqual(reports[0]['job_id'], identity)
+        self.assertNotIn(other, [report['job_id'] for report in reports])
+        with self.database.session() as db:
+            db.get(Report, reports[0]['id']).owner_id = 'other'
+        self.assertEqual(self.client.get('/api/v1/reports', params={'job_id': identity}).json(), [])
 
     def test_cold_warmup_waits_for_restore(self):
         from apps.server.workers.scanner.handler import scan

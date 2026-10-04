@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiClient, Job, terminalStatuses } from "@stock-scanner/client";
+import { ApiClient, Job, Report, terminalStatuses } from "@stock-scanner/client";
 import {
   ActionState,
   Badge,
@@ -15,6 +15,11 @@ function JobDetail({ api, job }: { api: ApiClient; job: Job }) {
   const qc = useQueryClient();
   const cancel = useAction(api, `/jobs/${job.id}/cancel`);
   const resume = useAction(api, `/jobs/${job.id}/resume`);
+  const reports = useQuery({
+    queryKey: ["job-reports", job.id, job.status, job.progress.report_ids],
+    queryFn: () => api.request<Report[]>(`/reports?job_id=${encodeURIComponent(job.id)}`),
+    enabled: job.kind === "scan" && job.error?.code === "scan_blocked",
+  });
   const events = useQuery({
     queryKey: ["events", job.id],
     queryFn: () =>
@@ -46,6 +51,20 @@ function JobDetail({ api, job }: { api: ApiClient; job: Job }) {
               : null
           }
         />
+        {job.kind === "scan" && job.error?.code === "scan_blocked" && (
+          <>
+            <h3>Scan diagnostics</h3>
+            <ErrorBox error={reports.error} />
+            {reports.isPending && <p>Loading the scan report…</p>}
+            {reports.data?.filter((report) => report.job_id === job.id && report.quality.startsWith("blocked")).map((report) => (
+              <div key={report.id}>
+                <p>{report.data_date} · <Badge>{report.quality}</Badge></p>
+                <Json value={report.summary.errors} />
+              </div>
+            ))}
+            {reports.data?.length === 0 && <p>No saved report was found for this scan.</p>}
+          </>
+        )}
         <Json value={job.progress} />
         <Json value={job.result} />
         <div className="inline">

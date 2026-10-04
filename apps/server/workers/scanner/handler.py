@@ -60,6 +60,7 @@ def scan(context, adapter=None):
                     dataset = "grouped" if p.parent.name == "grouped" else "reference"
                     storage.register(db, job.owner_id, p, dataset, {"session": p.name[:10] if dataset == "grouped" else session})
             if existing:
+                report_ids = [identity for identity in report_ids if identity != existing.id]
                 db.delete(owned(db, Report, existing.id, job.owner_id))
                 db.flush()
             row = Report(owner_id=job.owner_id, job_id=job.id, data_date=session, mode=planning["mode"],
@@ -77,6 +78,7 @@ def scan(context, adapter=None):
                     db.add(Signal(owner_id=job.owner_id, data_date=session, symbol=candidate["symbol"], rules_hash=h,
                                   mode=planning["mode"], report_id=row.id, payload=candidate))
         if result["status"].startswith("blocked"):
+            context.checkpoint(completed_sessions=completed, report_ids=report_ids, current_session=session)
             raise ServiceError("scan_blocked", "Source/quality blocked the scan; exact errors are preserved in the report")
         completed.append(session)
         context.checkpoint(completed_sessions=completed, report_ids=report_ids)

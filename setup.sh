@@ -148,7 +148,7 @@ if [ -n "$container_ids" ]; then
 fi
 compose build api web
 compose up -d --wait --wait-timeout 180 postgres
-compose run --rm migrate
+compose run --rm -T migrate
 compose up -d --no-build --no-deps --force-recreate --wait --wait-timeout 180 \
   api scheduler scanner-worker import-worker storage-worker web
 compose ps

@@ -57,6 +57,9 @@ class SetupCommandTests(unittest.TestCase):
                         elif args[:1]==['compose']:
                             if args[-2:]==['ps','-aq'] and os.environ.get('COSOUP_TEST_COLLISION'):
                                 print('fixture-container')
+                            if 'run' in args and 'migrate' in args and '-T' not in args and not sys.stdin.isatty():
+                                print('the input device is not a TTY', file=sys.stderr)
+                                sys.exit(1)
                             if 'migrate' in args and os.environ.get('COSOUP_TEST_MIGRATION_FAILURE'):
                                 sys.exit(9)
                         elif args[:1]==['inspect']:
@@ -138,6 +141,9 @@ class SetupCommandTests(unittest.TestCase):
         self.assertIn('https://codeload.github.com/adirothbuilds/CoSoup/tar.gz/fixture-commit',download['args'])
         build = next(call for call in calls if call['tool']=='docker' and call['args'][:1]==['build'])
         self.assertTrue(Path(build['cwd']).is_relative_to(self.directory/'downloaded'))
+        migration = next(call['args'] for call in calls if call['tool']=='docker' and 'migrate' in call['args'])
+        self.assertIn('-T', migration)
+        self.assertTrue(any('scanner-worker' in call['args'] for call in calls))
 
     def test_mac_opens_browser_and_copies_token_only_when_requested(self):
         result = self.setup('--copy-token')

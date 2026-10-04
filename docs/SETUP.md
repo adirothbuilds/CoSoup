@@ -97,6 +97,8 @@ curl -fsSL https://raw.githubusercontent.com/adirothbuilds/CoSoup/main/setup.sh 
 
 Use the same immutable commit in the raw URL and `--ref COMMIT_SHA` to select a fixed version. The bootstrap downloads source over verified HTTPS into a new private checkout under `~/.local/share/cosoup`, preserves earlier checkouts and deployment data, and delegates to that version's setup script. It prints the downloaded checkout path. It does not reset an existing developer checkout. When selecting a different ref, ensure it includes `setup.sh`.
 
+If an older installer stopped after starting PostgreSQL with `the input device is not a TTY`, rerun the curl command above to use the corrected installer. Database migration now explicitly disables TTY allocation, so it works through a pipe. Reuse the same mode and private root: setup preserves the existing database, env and credentials and continues with migration and application startup. For a custom root, include the same `--root` argument when rerunning.
+
 ## Manage the deployed stack
 
 From the checkout printed by setup, use:

@@ -9,11 +9,19 @@ COMPOSE_PROJECT ?= stock-scanner
 TIMEZONE ?= UTC
 SERVICE ?=
 BUILD_FLAGS ?=
-COMPOSE = docker compose --project-name "$(COMPOSE_PROJECT)" --env-file "$(COMPOSE_ENV)" -f apps/server/deploy/compose.yaml -f apps/web/deploy/compose.yaml
+BIN_DIR ?= $(HOME)/.local/bin
+COMPOSE_OVERRIDE ?=
+COMPOSE = docker compose --project-name "$(COMPOSE_PROJECT)" --env-file "$(COMPOSE_ENV)" -f apps/server/deploy/compose.yaml -f apps/web/deploy/compose.yaml $(if $(COMPOSE_OVERRIDE),-f "$(COMPOSE_OVERRIDE)")
 
-.PHONY: help install typecheck build web-dev ios-start ios-export ios-build test test-python test-client test-e2e docker-build init migrate deploy up down restart status logs config seed-schedules codex-build codex-start
+.PHONY: help setup install-command install typecheck build web-dev ios-start ios-export ios-build test test-python test-client test-e2e docker-build init migrate deploy up down restart status logs config seed-schedules codex-build codex-start
 help: ## Show available commands
-	@awk 'BEGIN {FS = ":.*## "; print "Stock Scanner commands:"} /^[a-zA-Z_-]+:.*## / {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*## "; print "CoSoup commands:"} /^[a-zA-Z_-]+:.*## / {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+setup: ## Detect the OS and deploy from one private env file (dev on Mac, prod on Linux)
+	bash setup.sh
+install-command: ## Install the cosoup command as a symlink to this checkout
+	@mkdir -p "$(BIN_DIR)"
+	@if [ -L "$(BIN_DIR)/cosoup" ] && [ "$$(readlink "$(BIN_DIR)/cosoup")" = "$(CURDIR)/cosoup" ]; then true; elif [ -e "$(BIN_DIR)/cosoup" ] || [ -L "$(BIN_DIR)/cosoup" ]; then printf 'Cannot replace existing %s/cosoup\n' "$(BIN_DIR)" >&2; exit 1; else ln -s "$(CURDIR)/cosoup" "$(BIN_DIR)/cosoup"; fi
+	@printf 'CoSoup command: %s/cosoup (add this directory to PATH)\n' "$(BIN_DIR)"
 install: ## Install pinned Python and JS dependencies for development
 	$(PYTHON_BOOTSTRAP) -m venv .venv
 	$(PYTHON) -m pip install -r apps/server/requirements.txt

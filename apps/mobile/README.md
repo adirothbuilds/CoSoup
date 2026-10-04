@@ -1,4 +1,4 @@
-# Expo iOS client
+# CoSoup iOS client
 
 Native React Native views use the same private server and shared API/domain packages as the web application. The app implements connection, daily/historical scan preview/submission, report review, candidate/near-breakout/portfolio movement, daily OHLC candles, journal entries/corrections, reviewed document imports, persistent job activity, schedule/retention controls and natural-language analyst context/vision requests.
 

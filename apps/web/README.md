@@ -1,4 +1,4 @@
-# Web research workspace
+# CoSoup web research workspace
 
 The responsive React application connects to the private FastAPI server. It provides daily report review, an interactive 3D movement map, daily OHLC candles, historical scans, portfolio journaling and reviewed imports, persistent job activity, schedules, retention controls and an optional natural-language analyst.
 

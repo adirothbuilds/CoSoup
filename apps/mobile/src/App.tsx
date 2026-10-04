@@ -122,7 +122,7 @@ function Connection() {
             contentContainerStyle={[styles.page, { paddingTop: 50 }]}
             keyboardShouldPersistTaps="handled"
           >
-            <Text style={styles.title}>Stock Scanner</Text>
+            <Text style={styles.title}>CoSoup</Text>
             <Text style={styles.muted}>
               Private market research, portfolio and history.
             </Text>

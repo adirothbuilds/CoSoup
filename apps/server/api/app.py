@@ -48,7 +48,7 @@ def create_app(settings=None, database=None, token=None):
         raise ValueError("API token must have at least 32 random characters")
     verifier = hashlib.sha256(token.encode()).digest()
     del token
-    app = FastAPI(title="Private Stock Research Server", version="0.1.0", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="CoSoup API", version="0.1.0", docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(BodyLimit, upload_bytes=settings.limits.upload_bytes)
     sessions = BrowserSessions(settings, database, verifier)
 
@@ -146,7 +146,7 @@ def create_app(settings=None, database=None, token=None):
 
     @app.get("/api/v1/docs", include_in_schema=False)
     def docs(principal=Depends(owner)):
-        return get_swagger_ui_html(openapi_url="/api/v1/openapi.json", title="Research API")
+        return get_swagger_ui_html(openapi_url="/api/v1/openapi.json", title="CoSoup API")
 
     @app.get("/api/v1/openapi.json", include_in_schema=False)
     def schema(principal=Depends(owner)):

@@ -18,6 +18,7 @@
 </p>
 
 <p align="center">
+  <a href="docs/SETUP.md">Setup</a> ·
   <a href="apps/server/README.md">Server</a> ·
   <a href="apps/web/README.md">Web</a> ·
   <a href="apps/mobile/README.md">iOS</a> ·
@@ -56,7 +57,60 @@ This is an alpha: optional integrations require private configuration and verifi
 
 Every server worker has its own module under `apps/server/workers/`; extension contracts live under `apps/server/adapters/`. Additional applications can be added under `apps/`.
 
-Run `make help` for development, tests, web/iOS builds and Docker deployment. Development requires Python 3.12+ and Node 24 LTS. `make deploy` uses private host configuration and starts persistent services; `make ios-export` bundles native assets, while `make ios-build` requires a Mac with Xcode/signing. See the application guides before configuring private HTTPS and credentials.
+## Quick start — macOS and Linux
+
+Install and start Docker first. On macOS use [Docker Desktop](https://docs.docker.com/desktop/setup/install/mac-install/) for Intel or Apple Silicon; on amd64 Linux use [Docker Engine with Compose v2](https://docs.docker.com/engine/install/debian/), as a non-root account with Docker access. Setup does not require host Python/Node packages, npm, Make or Xcode.
+
+From the repository root, deploy a local Mac test environment:
+
+```sh
+./setup.sh --mode dev --copy-token
+```
+
+The script builds and migrates the full Docker stack, waits for health and opens [the local web app](http://127.0.0.1:8081). Paste the owner token from the clipboard into Connect, then clear your clipboard. The server uses amd64 emulation on Apple Silicon; the web image is native.
+
+For a Linux server, use your actual private HTTPS origin:
+
+```sh
+./setup.sh --mode prod --origin https://YOUR-NODE.YOUR-TAILNET.ts.net
+```
+
+Configure Tailscale Serve or another trusted HTTPS reverse proxy to forward that origin to `127.0.0.1:8081`. The [Debian/Tailscale guide](docs/DEBIAN_TAILSCALE.md) covers HTTPS and Mac/iPhone connection. Setup does not configure the proxy itself. Without an origin, prod prepares its env and stops so you can fill the address and rerun.
+
+| Deployment | One editable configuration file | Default project |
+| --- | --- | --- |
+| macOS / `dev` | `~/.local/share/cosoup-dev/.env` | `cosoup-dev` |
+| Linux / `prod` | `~/.local/share/cosoup-prod/.env` | `cosoup-prod` |
+
+Edit **only that `.env`** for your actual `MASSIVE_API_KEY`, optional integrations and other settings, then rerun the same setup command. It generates the internal JSON/secret mounts and retains data and credentials. Dev and prod have separate databases and secrets. The script detects the OS; `--mode` selects the environment explicitly, and `--root /absolute/path` selects a custom private directory. Docker Desktop/host sleep pauses scheduling.
+
+To manage the local deployment:
+
+```sh
+./setup.sh --mode dev --action status
+./setup.sh --mode dev --action logs
+./setup.sh --mode dev --action down
+```
+
+On Linux use `--mode prod`, and include the same `--root` if customized. Stopping retains data. Use `./setup.sh --help` for options. See [the env reference and curl bootstrap](docs/SETUP.md), [Mac acceptance checks](docs/MACOS_LOCAL.md) and [validation records](docs/VALIDATION.md).
+
+## Optional developer command
+
+Run `./cosoup help` for development, tests, web/iOS builds and Docker deployment. Install the command once from the checkout root:
+
+```sh
+make install-command
+export PATH="$HOME/.local/bin:$PATH"
+command cosoup help
+```
+
+The installed executable resolves this checkout through its symlink and can be used from any directory. Keep the PATH setting in your shell profile. `cosoup setup --mode dev` runs the same installer; `cosoup deploy-mac` is its Mac shortcut. `cosoup install` installs development dependencies; command installation itself needs only Python 3 and Make. Development requires Python 3.12+ and Node 24 LTS.
+
+For a setup-managed default deployment, CoSoup discovers the recorded OS/mode root and project; `cosoup deploy` rerenders its env before deployment. `cosoup compose ...` uses the same generated Compose settings. Custom roots use `--private-root` or `COSOUP_PRIVATE`. Legacy manual deployments retain their data root/project selection and optional private `compose.macos.yaml`; their fallback defaults remain `/srv/stock-scanner` and project `stock-scanner`. `cosoup ios-export` bundles native assets, while `cosoup ios-build` requires a Mac with Xcode/signing. See the application guides before configuring private HTTPS and credentials.
+
+For local Mac testing, follow [Run CoSoup locally on a Mac](docs/MACOS_LOCAL.md), including the Apple Silicon server-platform override, private configuration and browser login setup.
+
+For a Debian backend with Mac/iPhone clients, follow [Debian with private Tailscale HTTPS](docs/DEBIAN_TAILSCALE.md). Tailscale Serve provides application access independently of SSH.
 
 ## Standalone scanner
 

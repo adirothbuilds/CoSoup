@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+"""CoSoup's checkout-aware development and deployment command."""
+import argparse
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+
+
+ROOT = Path(__file__).resolve().parent
+
+
+def main(argv=None):
+    targets = dict(re.findall(r"^([a-z][a-z0-9-]*):.*?## (.+)$", (ROOT / "Makefile").read_text(), re.M))
+    parser = argparse.ArgumentParser(
+        prog="cosoup",
+        description="CoSoup — private market research, portfolio context and home-server operations.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="Commands:\n" + "\n".join(f"  {name:20} {description}" for name, description in targets.items())
+        + "\n  compose              Run Docker Compose with CoSoup's private configuration"
+        + "\n  deploy-mac           One-command Docker Desktop setup on macOS"
+        + "\n\nExamples:\n  cosoup setup --mode dev\n  cosoup setup --mode prod --origin https://node.tailnet.ts.net"
+        + "\n  cosoup compose logs --tail 100 api\n  cosoup test",
+    )
+    parser.add_argument("--private-root", default=os.environ.get("COSOUP_PRIVATE", os.environ.get("PRIVATE_ROOT")),
+                        help="Private deployment directory; also settable with COSOUP_PRIVATE")
+    parser.add_argument("--project", default=os.environ.get("COSOUP_PROJECT", os.environ.get("COMPOSE_PROJECT")),
+                        help="Compose project; retain the name of an existing deployment")
+    parser.add_argument("--compose-override", default=os.environ.get("COSOUP_COMPOSE_OVERRIDE", os.environ.get("COMPOSE_OVERRIDE")),
+                        help="Additional Compose file; defaults to private compose.macos.yaml when present")
+    parser.add_argument("command", nargs="?", default="help", choices=[*targets, "compose", "deploy-mac"])
+    parser.add_argument("arguments", nargs=argparse.REMAINDER)
+    args = parser.parse_args(argv)
+    if args.command == "help":
+        parser.print_help()
+        return 0
+    if args.command in {"setup", "deploy-mac"}:
+        if args.project or args.compose_override:
+            parser.error("Setup uses COMPOSE_PROJECT_NAME in the private env and its own Compose overlay")
+        if args.command == "deploy-mac" and sys.platform != "darwin":
+            parser.error("deploy-mac requires macOS; use 'setup --mode dev' for Linux testing")
+        command = ["bash", str(ROOT / "setup.sh")]
+        if args.private_root:
+            command += ["--root", args.private_root]
+        if args.command == "deploy-mac":
+            command += ["--mode", "dev"]
+        command += args.arguments
+        return subprocess.run(command, cwd=ROOT).returncode
+    setup_default = Path.home() / ".local/share" / ("cosoup-dev" if sys.platform == "darwin" else "cosoup-prod")
+    default_root = setup_default if (setup_default / ".deployment.json").is_file() else Path("/srv/stock-scanner")
+    private_root = Path(args.private_root or default_root).expanduser().resolve()
+    metadata = {}
+    if (private_root / ".deployment.json").is_file():
+        try:
+            metadata = json.loads((private_root / ".deployment.json").read_text())
+        except (OSError, ValueError):
+            parser.error("Invalid private deployment metadata")
+    args.project = args.project or metadata.get("project", "stock-scanner")
+    if metadata and args.project != metadata.get("project"):
+        parser.error("Retain the project name recorded for this setup root")
+    if metadata and args.compose_override:
+        parser.error("Setup-managed deployments use their recorded Compose overlay")
+    compose_env = os.environ.get("COMPOSE_ENV", str(private_root / "compose.env"))
+    if metadata and Path(compose_env).resolve() != private_root / "compose.env":
+        parser.error("Setup-managed deployments use their generated compose.env")
+    override = Path(args.compose_override).expanduser().resolve() if args.compose_override else private_root / "compose.macos.yaml"
+    if not args.compose_override and metadata:
+        override = ROOT / "apps/server/deploy/compose.setup.yaml"
+    if args.compose_override and not override.is_file():
+        parser.error("The requested Compose override file does not exist")
+    if args.command == "deploy" and metadata:
+        if args.arguments:
+            parser.error("Use 'setup' options to redeploy a managed one-env installation")
+        return subprocess.run(["bash", str(ROOT / "setup.sh"), "--root", str(private_root), "--mode", metadata["mode"]], cwd=ROOT).returncode
+    if args.command == "compose":
+        command = ["docker", "compose", "--project-name", args.project, "--env-file", compose_env,
+                   "-f", str(ROOT / "apps/server/deploy/compose.yaml"),
+                   "-f", str(ROOT / "apps/web/deploy/compose.yaml")]
+        if override.is_file():
+            command += ["-f", str(override)]
+        command += args.arguments
+    else:
+        if any(not re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", value) for value in args.arguments):
+            parser.error("Target options use Make assignments, for example SERVICE=api; use 'compose' for Docker flags")
+        command = ["make", "--no-print-directory", args.command, f"PRIVATE_ROOT={private_root}",
+                   f"COMPOSE_ENV={compose_env}", f"COMPOSE_PROJECT={args.project}",
+                   f"COMPOSE_OVERRIDE={override if override.is_file() else ''}", *args.arguments]
+    environment = os.environ.copy()
+    if metadata:
+        compose_sources = [ROOT / name for name in ["apps/server/deploy/compose.yaml", "apps/web/deploy/compose.yaml", "apps/server/deploy/compose.setup.yaml"]]
+        for key in {key for path in compose_sources for key in re.findall(r"\$\{([A-Z][A-Z0-9_]*)", path.read_text())} | {"COMPOSE_PROFILES", "COMPOSE_PROJECT_NAME"}:
+            environment.pop(key, None)
+    try:
+        return subprocess.run(command, cwd=ROOT, env=environment).returncode
+    except FileNotFoundError:
+        print(f"CoSoup: required command '{command[0]}' is not installed.", file=sys.stderr)
+        return 127
+    except KeyboardInterrupt:
+        return 130
+
+
+if __name__ == "__main__":
+    sys.exit(main())

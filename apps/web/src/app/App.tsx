@@ -56,7 +56,7 @@ export default function App() {
         <div className="connect-card">
           <BarChart3 size={36} />
           <p className="eyebrow">PRIVATE RESEARCH</p>
-          <h1>Stock Scanner</h1>
+          <h1>CoSoup</h1>
           <p className="muted">
             Your market research, portfolio and history in one quiet workspace.
           </p>
@@ -154,7 +154,7 @@ function Workspace({
       <aside className="sidebar">
         <a className="brand" href="#home">
           <BarChart3 />
-          Stock Scanner
+          CoSoup
         </a>
         <nav aria-label="Main navigation">
           {navigation.map((n) => {

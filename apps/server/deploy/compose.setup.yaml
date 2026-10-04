@@ -1,0 +1,31 @@
+x-setup: &setup
+  platform: linux/amd64
+  image: cosoup-${MODE:?Set setup mode}-server:local
+  labels: &labels
+    com.cosoup.private-root: "${SERVER_ROOT}"
+    com.cosoup.mode: "${MODE}"
+
+services:
+  postgres:
+    platform: linux/amd64
+    labels: *labels
+  migrate:
+    <<: *setup
+  api:
+    <<: *setup
+  scanner-worker:
+    <<: *setup
+  scheduler:
+    <<: *setup
+  import-worker:
+    <<: *setup
+  storage-worker:
+    <<: *setup
+  codex-worker:
+    platform: linux/amd64
+    image: cosoup-${MODE}-codex:local
+    labels: *labels
+  web:
+    platform: "${COSOUP_WEB_PLATFORM:-linux/amd64}"
+    image: cosoup-${MODE}-web:local
+    labels: *labels

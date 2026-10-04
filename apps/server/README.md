@@ -1,6 +1,8 @@
-# Home research server
+# CoSoup home research server
 
 An experimental FastAPI application for a private Debian home server. Docker Compose runs the API, PostgreSQL, scheduler and independent scanner, import and storage workers. An optional dedicated Codex worker analyzes authorized report copies. The standalone scanner remains available.
+
+For a deployment generated from one private env file, use the [OS-aware setup command](../../docs/SETUP.md). The installation steps below describe the advanced manual configuration path; setup-managed JSON/secret files are generated from their master env.
 
 All reports, API responses, code and documentation are English. There is no brokerage connection or order execution. The first release has one authenticated owner; private records carry owner IDs for future authentication adapters. It does not provide multiple-user login or separate owner-token scopes yet.
 

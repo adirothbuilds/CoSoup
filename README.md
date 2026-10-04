@@ -1,6 +1,49 @@
-# Stock research tools
+<p align="center">
+  <img src="docs/assets/cosoup/banner.svg" alt="CoSoup — research, simmered" width="900" />
+</p>
 
-Experimental personal research for US equity swing and medium/long-term opportunities. The project uses Massive and produces English JSON and Markdown reports. It has no broker connection, order execution or paid-plan upgrade mechanism.
+<p align="center">
+  <a href="apps/server/README.md"><img src="docs/assets/cosoup/badges/python.svg" alt="Python 3.12+" /></a>
+  <a href="apps/web/README.md"><img src="docs/assets/cosoup/badges/node.svg" alt="Node 24 LTS development toolchain" /></a>
+  <a href="apps/server/requirements.txt"><img src="docs/assets/cosoup/badges/fastapi.svg" alt="FastAPI 0.142.2" /></a>
+  <a href="apps/web/package.json"><img src="docs/assets/cosoup/badges/react.svg" alt="React 19.2.3" /></a>
+  <a href="apps/mobile/package.json"><img src="docs/assets/cosoup/badges/expo.svg" alt="Expo 57.0.26" /></a>
+  <a href="package.json"><img src="docs/assets/cosoup/badges/typescript.svg" alt="TypeScript 5.9.3" /></a>
+  <a href="LICENSE"><img src="docs/assets/cosoup/badges/license.svg" alt="MIT license" /></a>
+</p>
+
+<p align="center">
+  <strong>A calmer workspace for stock research.</strong><br />
+  Market signals, portfolio context and a research companion, in one pot.
+</p>
+
+<p align="center">
+  <a href="apps/server/README.md">Server</a> ·
+  <a href="apps/web/README.md">Web</a> ·
+  <a href="apps/mobile/README.md">iOS</a> ·
+  <a href="docs/OPERATIONS.md">CLI</a> ·
+  <a href="docs/VALIDATION.md">Validation</a>
+</p>
+
+# CoSoup
+
+Experimental personal research for US equity swing and medium/long-term opportunities. CoSoup combines Massive end-of-day data, a self-hosted server, web and iOS clients, and an optional Codex research companion called **Steve**. It produces English JSON and Markdown reports and has no broker connection, order execution or paid-plan upgrade mechanism.
+
+| In the pot | What you get |
+| --- | --- |
+| Market research | Configurable breakout and near-breakout screening, daily candles, relative strength and a 3D movement view on the web. |
+| Portfolio context | A personal transaction journal, reviewed photo/document imports and explicitly authorized context for the research agent. |
+| Home-server operations | Durable jobs, configurable schedules, historical snapshots and retention, with optional encrypted Cloudflare R2 archiving. |
+
+<details>
+  <summary>Meet Steve and the CoSoup bowl</summary>
+  <p align="center">
+    <img src="docs/assets/cosoup/mascots.png" alt="Steve, an anime chef holding a pan, beside the friendly charcoal and teal CoSoup bowl" width="640" />
+  </p>
+  <p>Steve cooks the research; you make the decisions. The mascots are decorative, not a representation of live market data.</p>
+</details>
+
+This is an alpha: optional integrations require private configuration and verification. Read the [validation notes](docs/VALIDATION.md) for what has actually been tested. Technology badges describe declared dependencies and the documented development toolchain; they are not CI status indicators.
 
 ## Applications
 

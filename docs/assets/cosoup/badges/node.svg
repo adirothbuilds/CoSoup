@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="106" height="24" viewBox="0 0 106 24" role="img" aria-labelledby="title">
+  <title id="title">Node 24 LTS</title>
+  <defs><clipPath id="rounded"><rect width="106" height="24" rx="5" /></clipPath></defs>
+  <g clip-path="url(#rounded)">
+    <rect width="106" height="24" fill="#131d29" />
+    <rect x="46" width="60" height="24" fill="#1b2a3c" />
+    <rect y="23" width="106" height="1" fill="#39d6bd" />
+  </g>
+  <g font-family="Verdana, Geneva, sans-serif" font-size="11" text-anchor="middle">
+    <text x="23" y="16" fill="#92a4b8">Node</text>
+    <text x="76" y="16" fill="#39d6bd">24 LTS</text>
+  </g>
+</svg>

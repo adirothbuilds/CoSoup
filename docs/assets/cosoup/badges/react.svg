@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="113" height="24" viewBox="0 0 113 24" role="img" aria-labelledby="title">
+  <title id="title">React 19.2.3</title>
+  <defs><clipPath id="rounded"><rect width="113" height="24" rx="5" /></clipPath></defs>
+  <g clip-path="url(#rounded)">
+    <rect width="113" height="24" fill="#131d29" />
+    <rect x="53" width="60" height="24" fill="#1b2a3c" />
+    <rect y="23" width="113" height="1" fill="#8ab8ef" />
+  </g>
+  <g font-family="Verdana, Geneva, sans-serif" font-size="11" text-anchor="middle">
+    <text x="26.5" y="16" fill="#92a4b8">React</text>
+    <text x="83" y="16" fill="#8ab8ef">19.2.3</text>
+  </g>
+</svg>

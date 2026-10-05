@@ -55,6 +55,23 @@ class ServerCase(unittest.TestCase):
 
 
 class ApiTests(ServerCase):
+    def test_reports_same_session_are_ordered_by_publication_and_paginated_consistently(self):
+        published = datetime(2026,10,5,10,tzinfo=timezone.utc)
+        identities=[]
+        for name,quality,stamp in [('old','blocked_error',published-timedelta(hours=1)),('new','partial_coverage',published)]:
+            path=self.storage.path(f'reports/{name}.json');path.parent.mkdir(parents=True,exist_ok=True)
+            path.write_text(json.dumps({'status':quality}))
+            with self.database.session() as db:
+                artifact=self.storage.register(db,'owner',path,'reports');artifact.created_at=stamp
+                row=Report(owner_id='owner',job_id=name,data_date='2026-10-02',mode='live',quality=quality,
+                           artifact_id=artifact.id,markdown_id=artifact.id,summary={'candidate_count':0 if name=='old' else 2})
+                db.add(row);db.flush();identities.append(row.id)
+        reports=self.client.get('/api/v1/reports').json()
+        self.assertEqual([report['id'] for report in reports],list(reversed(identities)))
+        self.assertEqual(reports[0]['summary']['candidate_count'],2)
+        for offset,identity in enumerate(reversed(identities)):
+            self.assertEqual(self.client.get('/api/v1/reports',params={'limit':1,'offset':offset}).json()[0]['id'],identity)
+
     def test_auth_and_owner_boundary(self):
         self.assertEqual(self.client.get("/api/v1/health/live", headers={"Authorization": ""}).status_code, 200)
         self.assertEqual(self.client.get("/api/v1/jobs", headers={"Authorization": ""}).status_code, 401)

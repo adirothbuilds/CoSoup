@@ -154,10 +154,48 @@ class VisualApiTests(unittest.TestCase):
             db.add_all([split,other,ticker]);db.flush()
             self.assertEqual(restore_ids(db,'owner',self.days),[split.id])
 
-    def test_chart_reuses_movement_history_without_rereading_market(self):
+    def test_short_movement_does_not_replace_full_chart_history(self):
         from stock_scanner.market import load_market
         self.market();identity=self.report(extra=True)
         with patch('apps.server.services.market.load_market',wraps=load_market) as loader:
             self.client.post('/api/v1/market/movement-snapshots',headers=self.auth,json={'scope':'candidates','report_id':identity,'period':'1D'})
             response=self.client.get('/api/v1/market/tickers/AVT/bars?end_date=2026-10-02',headers=self.auth)
-            self.assertEqual(response.status_code,200);self.assertEqual(loader.call_count,1)
+            self.assertEqual(response.status_code,200);self.assertEqual(len(response.json()['bars']),260)
+            self.assertEqual([len(call.args[1]) for call in loader.call_args_list],[2,260])
+            monthly=self.client.post('/api/v1/market/movement-snapshots',headers=self.auth,json={'scope':'candidates','report_id':identity,'period':'1M'})
+            self.assertEqual(monthly.status_code,200)
+            rows={row['symbol']:row for row in monthly.json()['items']}
+            self.assertAlmostEqual(rows['AVT']['change_percent'],(125.9/123.8-1)*100)
+            self.assertIsNone(rows['ABC']['change_percent'])
+
+    def test_movement_reads_only_its_period_and_keeps_split_adjustment(self):
+        from stock_scanner.market import load_market
+        self.market(split=True);identity=self.report()
+        with patch('apps.server.services.market.load_market',wraps=load_market) as loader:
+            for period,count in [('1D',2),('1W',6),('1M',22)]:
+                response=self.client.post('/api/v1/market/movement-snapshots',headers=self.auth,json={'scope':'candidates','report_id':identity,'period':period})
+                self.assertEqual(response.status_code,200)
+                self.assertAlmostEqual(response.json()['items'][0]['change_percent'],(125.9/(125.9-(count-1)/10)-1)*100)
+            self.assertEqual([len(call.args[1]) for call in loader.call_args_list],[2,6,22])
+
+    def test_full_chart_cache_reuses_columns_for_short_movement(self):
+        from stock_scanner.market import load_market
+        self.market(split=True);identity=self.report()
+        with patch('apps.server.services.market.load_market',wraps=load_market) as loader:
+            self.assertEqual(self.client.get('/api/v1/market/tickers/AVT/bars?end_date=2026-10-02',headers=self.auth).status_code,200)
+            response=self.client.post('/api/v1/market/movement-snapshots',headers=self.auth,json={'scope':'candidates','report_id':identity,'period':'1M'})
+            self.assertEqual(response.status_code,200)
+            self.assertEqual(loader.call_count,1)
+            self.assertAlmostEqual(response.json()['items'][0]['change_percent'],(125.9/123.8-1)*100)
+
+    def test_old_invalid_bar_does_not_block_recent_movement(self):
+        self.market();identity=self.report()
+        path=self.storage.path(f'market/raw/grouped/{self.days[0]}.json.gz')
+        from stock_scanner.storage import read_json
+        document=read_json(path);document['data']['results'][0]['c']=-1
+        atomic_json(path,document)
+        chart=self.client.get('/api/v1/market/tickers/AVT/bars?end_date=2026-10-02',headers=self.auth)
+        self.assertEqual(chart.status_code,200);self.assertEqual(chart.json()['quality'],'partial_coverage')
+        response=self.client.post('/api/v1/market/movement-snapshots',headers=self.auth,json={'scope':'candidates','report_id':identity,'period':'1D'})
+        self.assertEqual(response.status_code,200)
+        self.assertAlmostEqual(response.json()['items'][0]['change_percent'],(125.9/125.8-1)*100)

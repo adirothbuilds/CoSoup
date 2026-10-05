@@ -289,7 +289,9 @@ def create_app(settings=None, database=None, token=None):
             q = q.where(Report.mode == mode)
         if job_id:
             q = q.where(Report.job_id == job_id)
-        return [view(r, "id job_id data_date mode quality artifact_id markdown_id summary") for r in db.scalars(q.order_by(Report.data_date.desc()).limit(limit).offset(offset))]
+        q = q.join(Artifact, Artifact.id == Report.artifact_id).order_by(
+            Report.data_date.desc(), Artifact.created_at.desc(), Report.id.desc())
+        return [view(r, "id job_id data_date mode quality artifact_id markdown_id summary") for r in db.scalars(q.limit(limit).offset(offset))]
 
     @app.get("/api/v1/reports/{identity}")
     def report(identity: str, principal=Depends(owner), db=Depends(db_session)):

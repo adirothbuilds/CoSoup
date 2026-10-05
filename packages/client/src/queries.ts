@@ -1,7 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiClient, Period, Scope, terminalStatuses } from "./index";
 
 export function useWorkspace(api: ApiClient) {
+  const client = useQueryClient();
   const reports = useQuery({
     queryKey: ["reports"],
     queryFn: () => api.reports(),
@@ -17,6 +19,20 @@ export function useWorkspace(api: ApiClient) {
     refetchInterval: (q) =>
       q.state.data?.some((j) => !terminalStatuses.has(j.status)) ? 5000 : 30000,
   });
+  const finished =
+    jobs.data
+      ?.filter((job) => terminalStatuses.has(job.status))
+      .map(
+        (job) =>
+          `${job.id}:${job.status}:${JSON.stringify(job.progress.report_ids ?? [])}`,
+      )
+      .join("|") ?? "";
+  useEffect(() => {
+    if (finished) {
+      void client.invalidateQueries({ queryKey: ["reports"] });
+      void client.invalidateQueries({ queryKey: ["report-page"] });
+    }
+  }, [client, finished]);
   const context = useQuery({
     queryKey: ["market-context"],
     queryFn: () => api.request<{ latest_session: string }>("/market/context"),

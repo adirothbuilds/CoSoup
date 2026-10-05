@@ -257,8 +257,20 @@ export default function Home({
         <Panel>
           <Metric
             label="Research candidates"
-            value={typeof daily?.summary.candidate_count === 'number' ? daily.summary.candidate_count : daily?.summary.candidates?.length ?? "Unavailable"}
-            note="Actual screening results"
+            value={
+              daily?.quality.startsWith("blocked")
+                ? "Unavailable"
+                : typeof daily?.summary.candidate_count === "number"
+                  ? daily.summary.candidate_count
+                  : daily?.summary.candidates?.length ?? "Unavailable"
+            }
+            note={
+              daily?.quality.startsWith("blocked")
+                ? "Scan blocked; inspect its diagnostics"
+                : daily?.quality === "partial_coverage"
+                  ? "Screening results with coverage gaps"
+                  : "Actual screening results"
+            }
           />
         </Panel>
         <Panel>

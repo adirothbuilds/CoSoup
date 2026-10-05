@@ -79,19 +79,32 @@ def cached_matrix(root_name, sessions, symbols, stamps):
     return matrix, errors, daily, reference.get("retrieved_at"), reference["last"]
 
 
-def matrix_for(storage, end, symbols):
-    sessions = tuple(sessions_ending(end))
+def matrix_for(storage, end, symbols, count=260):
+    sessions = tuple(sessions_ending(end, count))
     try:
         root = str(storage.path("market"))
         stamps = fingerprints(storage.path("market"), sessions)
         stamp = hashlib.sha256(repr(stamps).encode()).digest()
-        keys = [(root,end,stamp,symbol) for symbol in symbols]
+        keys = [(root,sessions,stamp,symbol) for symbol in symbols]
+        full_keys = None
+        if count < 260:
+            full_sessions = tuple(sessions_ending(end))
+            full_stamps = fingerprints(storage.path("market"), full_sessions)
+            full_stamp = hashlib.sha256(repr(full_stamps).encode()).digest()
+            full_keys = [(root,full_sessions,full_stamp,symbol) for symbol in symbols]
         with _column_lock:
             reused = [_columns.get(k) for k in keys]
+            reused_keys = keys
+            if not all(r is not None for r in reused) and full_keys:
+                reused = [_columns.get(k) for k in full_keys]
+                reused_keys = full_keys
+                # An error from an older bar may not apply to this shorter range.
+                if any(r is not None and r[1] for r in reused):
+                    reused = [None] * len(symbols)
             if all(r is not None for r in reused):
-                for k in keys:
+                for k in reused_keys:
                     _columns.move_to_end(k)
-                return sessions, np.stack([r[0] for r in reused]), {s:r[1] for s,r in zip(symbols,reused) if r[1]}, *reused[0][2:]
+                return sessions, np.stack([r[0][-count:] for r in reused]), {s:r[1] for s,r in zip(symbols,reused) if r[1]}, *reused[0][2:]
         matrix, errors, daily, retrieved, reference_end = cached_matrix(root, sessions, tuple(symbols), stamps)
         with _column_lock:
             for i,key in enumerate(keys):
@@ -179,7 +192,7 @@ def movement(db, storage, settings, owner, request):
         return {"data_date": end,"start_date":sessions[0],"period":request.period,"basis":"split_adjusted",
                 "items":[],"total_symbols":total,"displayed_symbols":0,"quality":"complete","restore_artifact_ids":[]}
     with storage.reader():
-        warmup, matrix, errors, _, _, _ = matrix_for(storage, end, symbols)
+        warmup, matrix, errors, _, _, _ = matrix_for(storage, end, symbols, intervals+1)
     output = []
     for symbol, values in zip(symbols, matrix):
         recent = values[-intervals-1:]

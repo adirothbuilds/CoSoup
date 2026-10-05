@@ -1,9 +1,16 @@
+import { BowlMark, KitchenScene } from "../../components/Kitchen";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiClient, Job, Report, terminalStatuses } from "@stock-scanner/client";
+import {
+  ApiClient,
+  Job,
+  Report,
+  terminalStatuses,
+} from "@stock-scanner/client";
 import {
   ActionState,
   Badge,
+  Disclosure,
   Empty,
   ErrorBox,
   Json,
@@ -17,7 +24,8 @@ function JobDetail({ api, job }: { api: ApiClient; job: Job }) {
   const resume = useAction(api, `/jobs/${job.id}/resume`);
   const reports = useQuery({
     queryKey: ["job-reports", job.id, job.status, job.progress.report_ids],
-    queryFn: () => api.request<Report[]>(`/reports?job_id=${encodeURIComponent(job.id)}`),
+    queryFn: () =>
+      api.request<Report[]>(`/reports?job_id=${encodeURIComponent(job.id)}`),
     enabled: job.kind === "scan" && job.error?.code === "scan_blocked",
   });
   const events = useQuery({
@@ -43,7 +51,46 @@ function JobDetail({ api, job }: { api: ApiClient; job: Job }) {
   return (
     <Panel title={job.kind} aside={<Badge>{job.status}</Badge>}>
       <div className="padded">
-        <p className="muted small">{job.id}</p>
+        <div className="job-story">
+          <BowlMark />
+          <div>
+            <h3>
+              {job.status === "succeeded"
+                ? "Order up."
+                : job.status === "running"
+                  ? "Let him cook…"
+                  : job.status === "failed"
+                    ? "Something needs attention."
+                    : "In the kitchen."}
+            </h3>
+            <p>
+              {job.status === "succeeded"
+                ? "Your work is ready to review."
+                : job.status === "failed"
+                  ? "The exact issue is below. Resolve it before resuming."
+                  : "Work continues when you close this page."}
+            </p>
+          </div>
+        </div>
+        {!terminalStatuses.has(job.status) &&
+          ["scan", "agent", "weekly"].includes(job.kind) && (
+            <div className="activity-kitchen">
+              <KitchenScene working />
+            </div>
+          )}
+        {job.kind === "scan" &&
+          job.status === "succeeded" &&
+          Array.isArray(job.progress.report_ids) &&
+          typeof job.progress.report_ids[0] === "string" && (
+            <p>
+              <a
+                className="primary"
+                href={`?report=${encodeURIComponent(job.progress.report_ids[0])}#research`}
+              >
+                Open your serving →
+              </a>
+            </p>
+          )}
         <ErrorBox
           error={
             job.error
@@ -56,17 +103,30 @@ function JobDetail({ api, job }: { api: ApiClient; job: Job }) {
             <h3>Scan diagnostics</h3>
             <ErrorBox error={reports.error} />
             {reports.isPending && <p>Loading the scan report…</p>}
-            {reports.data?.filter((report) => report.job_id === job.id && report.quality.startsWith("blocked")).map((report) => (
-              <div key={report.id}>
-                <p>{report.data_date} · <Badge>{report.quality}</Badge></p>
-                <Json value={report.summary.errors} />
-              </div>
-            ))}
-            {reports.data?.length === 0 && <p>No saved report was found for this scan.</p>}
+            {reports.data
+              ?.filter(
+                (report) =>
+                  report.job_id === job.id &&
+                  report.quality.startsWith("blocked"),
+              )
+              .map((report) => (
+                <div key={report.id}>
+                  <p>
+                    {report.data_date} · <Badge>{report.quality}</Badge>
+                  </p>
+                  <Json value={report.summary.errors} />
+                </div>
+              ))}
+            {reports.data?.length === 0 && (
+              <p>No saved report was found for this scan.</p>
+            )}
           </>
         )}
-        <Json value={job.progress} />
-        <Json value={job.result} />
+        <Disclosure title="Job details">
+          <p className="muted small">{job.id}</p>
+          <Json value={job.progress} />
+          <Json value={job.result} />
+        </Disclosure>
         <div className="inline">
           {!terminalStatuses.has(job.status) && (
             <button
@@ -75,7 +135,7 @@ function JobDetail({ api, job }: { api: ApiClient; job: Job }) {
             >
               {job.cancel_requested
                 ? "Cancellation requested"
-                : "Cancel cooperatively"}
+                : "Stop this job"}
             </button>
           )}
           {["failed", "cancelled", "waiting_for_archive"].includes(
@@ -91,22 +151,23 @@ function JobDetail({ api, job }: { api: ApiClient; job: Job }) {
         </div>
         <ActionState action={cancel} />
         <ActionState action={resume} />
-        <h3>Persisted events</h3>
-        <ErrorBox error={events.error} />
-        {events.data?.map((e) => (
-          <div className="event" key={e.id}>
-            <small>
-              {e.at} · {e.level}
-            </small>
-            <strong>{e.code}</strong>
-            <Json value={e.data} />
-          </div>
-        ))}
-        {events.data?.length === 500 && (
-          <p className="muted">
-            First 500 events. Use the API event cursor for later events.
-          </p>
-        )}
+        <Disclosure title="Activity log & exact events">
+          <ErrorBox error={events.error} />
+          {events.data?.map((e) => (
+            <div className="event" key={e.id}>
+              <small>
+                {e.at} · {e.level}
+              </small>
+              <strong>{e.code}</strong>
+              <Json value={e.data} />
+            </div>
+          ))}
+          {events.data?.length === 500 && (
+            <p className="muted">
+              First 500 events. Use the API event cursor for later events.
+            </p>
+          )}
+        </Disclosure>
       </div>
     </Panel>
   );

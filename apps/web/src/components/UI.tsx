@@ -39,8 +39,35 @@ export function ErrorBox({ error }: { error: unknown }) {
 export function Empty({ children }: { children: ReactNode }) {
   return <div className="empty">{children}</div>;
 }
+export function statusLabel(status: string) {
+  return (
+    (
+      {
+        complete: "Ready",
+        partial_coverage: "Coverage gaps",
+        blocked_error: "Needs attention",
+        blocked_quality: "Data needs attention",
+        succeeded: "Served",
+        failed: "Needs attention",
+        running: "Cooking",
+        queued: "On the stove",
+        cancelled: "Stopped",
+        waiting_for_archive: "Waiting for data",
+        disabled: "Not connected",
+        ready: "Ready",
+        live: "Daily research",
+        historical_snapshot: "Historical research",
+      } as Record<string, string>
+    )[status] ?? status
+  );
+}
 export function Badge({ children }: { children: ReactNode }) {
-  return <span className="badge">{children}</span>;
+  const raw = typeof children === "string" ? children : undefined;
+  return (
+    <span className="badge" data-status={raw} title={raw}>
+      {raw ? statusLabel(raw) : children}
+    </span>
+  );
 }
 export function Json({ value }: { value: unknown }) {
   return <pre className="json">{JSON.stringify(value, null, 2)}</pre>;

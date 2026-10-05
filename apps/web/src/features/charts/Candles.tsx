@@ -8,7 +8,7 @@ import {
   Time,
 } from "lightweight-charts";
 import { Bars, chartWindow, money } from "@stock-scanner/client";
-import { colors } from "@stock-scanner/design";
+import { useTheme } from "../../components/Theme";
 import { Toggle } from "../../components/UI";
 
 export default function Candles({
@@ -18,6 +18,7 @@ export default function Candles({
   data: Bars;
   pivot?: number;
 }) {
+  const { colors, theme } = useTheme();
   const container = useRef<HTMLDivElement>(null);
   const [range, setRange] = useState<"1M" | "3M" | "1Y">("1M");
   const [averages, setAverages] = useState(true);
@@ -83,14 +84,14 @@ export default function Candles({
       shown.map((b) => ({
         time: b.session as Time,
         value: b.volume,
-        color: b.close >= b.open ? "#238f80" : "#995954",
+        color: b.close >= b.open ? colors.positive : colors.negative,
       })),
     );
     chart.panes()[1]?.setHeight(74);
     if (averages)
       for (const [key, color] of [
         ["sma50", colors.accent],
-        ["sma200", "#ad9cca"],
+        ["sma200", theme === "light" ? "#866f9c" : "#c4a9de"],
       ] as const) {
         const line = chart.addSeries(LineSeries, {
           color,
@@ -109,7 +110,7 @@ export default function Candles({
     });
     chart.timeScale().fitContent();
     return () => chart.remove();
-  }, [data, range, averages, pivot]);
+  }, [data, range, averages, pivot, colors, theme]);
   const bar = readout ?? shown.at(-1);
   return (
     <div className="candles">

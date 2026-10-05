@@ -1,3 +1,5 @@
+import { KitchenScene } from "../../components/Kitchen";
+import { ArrowRight, Plus, UtensilsCrossed } from "lucide-react";
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -16,8 +18,8 @@ import {
   ErrorBox,
   Json,
   Metric,
-  Panel,
   useAction,
+  statusLabel,
 } from "../../components/UI";
 
 export function ScanForm({ api }: { api: ApiClient }) {
@@ -231,62 +233,93 @@ export default function Home({
     ["live", "historical_snapshot"].includes(r.mode),
   );
   const weekly = useAction(api, "/weekly-summaries");
+  const active = jobs.filter((j) => !terminalStatuses.has(j.status));
+  const candidateCount = daily?.quality.startsWith("blocked")
+    ? "Unavailable"
+    : typeof daily?.summary.candidate_count === "number"
+      ? daily.summary.candidate_count
+      : (daily?.summary.candidates?.length ?? "Unavailable");
   return (
-    <>
-      <div className="overview-intro">
-        <div>
-          <p className="eyebrow">YOUR RESEARCH WORKSPACE</p>
-          <h2>A clear view of the market.</h2>
-          <p className="muted">
-            Completed session {latest ?? "unavailable"} · Your reports preserve
-            their own dates and coverage.
+    <div className="home-page">
+      <section className="home-hero">
+        <div className="hero-copy">
+          <p className="eyebrow">
+            <span /> A LITTLE CLARITY, FRESH DAILY
           </p>
+          <h2>
+            Good research.
+            <br />
+            <em>Slow simmer.</em>
+          </h2>
+          <p className="hero-description">
+            A quieter place to make sense of the market.
+            <br className="desktop-break" /> Steve does the prep. You do the
+            thinking.
+          </p>
+          <button className="primary hero-cta" onClick={onResearch}>
+            Explore your research <ArrowRight size={18} />
+          </button>
+          <p className="hero-footnote">Your own workspace. Your own pace.</p>
         </div>
-        <button className="primary" onClick={onResearch}>
-          Open market workspace →
-        </button>
-      </div>
-      <div className="summary-cards">
-        <Panel>
-          <Metric
-            label="Latest daily report"
-            value={daily?.data_date ?? "No report"}
-            note={daily?.quality}
-          />
-        </Panel>
-        <Panel>
-          <Metric
-            label="Research candidates"
-            value={
-              daily?.quality.startsWith("blocked")
-                ? "Unavailable"
-                : typeof daily?.summary.candidate_count === "number"
-                  ? daily.summary.candidate_count
-                  : daily?.summary.candidates?.length ?? "Unavailable"
-            }
-            note={
-              daily?.quality.startsWith("blocked")
-                ? "Scan blocked; inspect its diagnostics"
-                : daily?.quality === "partial_coverage"
-                  ? "Screening results with coverage gaps"
-                  : "Actual screening results"
-            }
-          />
-        </Panel>
-        <Panel>
-          <Metric
-            label="Active jobs"
-            value={jobs.filter((j) => !terminalStatuses.has(j.status)).length}
-            note="Durable server work"
-          />
-        </Panel>
-      </div>
-      <Panel title="Run a scan">
+        <KitchenScene
+          working={active.some((j) =>
+            ["scan", "weekly", "agent"].includes(j.kind),
+          )}
+          reportId={
+            daily?.quality.startsWith("blocked") ? undefined : daily?.id
+          }
+        />
+      </section>
+      <section className="daily-serving" aria-label="Your daily serving">
+        <div className="serving-intro">
+          <UtensilsCrossed size={19} />
+          <span>
+            On today's menu
+            <small>{latest ?? "Waiting for a market date"}</small>
+          </span>
+        </div>
+        <Metric
+          label="Latest daily report"
+          value={daily?.data_date ?? "Not served yet"}
+          note={daily ? statusLabel(daily.quality) : "Start with a fresh scan"}
+        />
+        <Metric
+          label="Research candidates"
+          value={candidateCount}
+          note={
+            daily?.quality.startsWith("blocked")
+              ? "Scan blocked; inspect its diagnostics"
+              : daily?.quality === "partial_coverage"
+                ? "Results with coverage gaps"
+                : "Screening results, as they are"
+          }
+        />
+        <Metric
+          label="Active jobs"
+          value={active.length}
+          note={
+            active.length
+              ? "Let him cook. Follow along in Activity."
+              : "The kitchen is taking a breather"
+          }
+        />
+      </section>
+      <details className="scan-drawer" open={!daily}>
+        <summary>
+          <span>
+            <Plus size={18} /> Make a fresh serving
+          </span>
+          <small>Preview the dates, then start a scan</small>
+        </summary>
         <ScanForm api={api} />
-      </Panel>
-      <Panel
-        title="Reports"
-        aside={
+      </details>
+      <details className="saved-servings">
+        <summary>
+          <span>Saved servings</span>
+          <small>Your reports, with their original dates and coverage</small>
+        </summary>
+        <div className="reports-toolbar">
+          <h2>Your research journal</h2>
           <button
             disabled={weekly.isPending || !daily}
             onClick={() =>
@@ -295,12 +328,9 @@ export default function Home({
           >
             Queue weekly summary
           </button>
-        }
-      >
-        <div className="padded">
-          <ActionState action={weekly} />
-          <ErrorBox error={next.error} />
         </div>
+        <ActionState action={weekly} />
+        <ErrorBox error={next.error} />
         {shown.length ? (
           shown.map((r) => (
             <div key={r.id}>
@@ -311,17 +341,25 @@ export default function Home({
               >
                 <div>
                   <strong>{r.data_date}</strong>
-                  <small>{r.mode}</small>
+                  <small>
+                    {r.mode === "live"
+                      ? "Daily research"
+                      : r.mode === "historical_snapshot"
+                        ? "Historical research"
+                        : "Weekly review"}
+                  </small>
                 </div>
                 <Badge>{r.quality}</Badge>
-                <span>Open ›</span>
+                <span>
+                  Open <ArrowRight size={14} />
+                </span>
               </button>
               {selected === r.id && <ReportView api={api} report={r} />}
             </div>
           ))
         ) : (
           <Empty>
-            No reports yet. Preview a scan to see the required data.
+            No servings yet. Preview a scan to see the dates it needs.
           </Empty>
         )}
         <div className="pagination">
@@ -339,7 +377,7 @@ export default function Home({
             Next
           </button>
         </div>
-      </Panel>
-    </>
+      </details>
+    </div>
   );
 }

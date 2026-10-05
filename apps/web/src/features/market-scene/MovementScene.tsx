@@ -9,7 +9,7 @@ import {
 import { Canvas, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { MovementItem, pct } from "@stock-scanner/client";
-import { colors } from "@stock-scanner/design";
+import { useTheme } from "../../components/Theme";
 
 class SceneBoundary extends Component<
   { children: ReactNode },
@@ -67,6 +67,7 @@ function Label({
   z: number;
   y: number;
 }) {
+  const { colors } = useTheme();
   const texture = useMemo(() => {
     const c = document.createElement("canvas");
     c.width = 384;
@@ -81,7 +82,7 @@ function Label({
     ctx.font = "38px system-ui";
     ctx.fillText(pct(item.change_percent), 192, 91);
     return new THREE.CanvasTexture(c);
-  }, [item.symbol, item.change_percent]);
+  }, [item.symbol, item.change_percent, colors]);
   useEffect(() => () => texture.dispose(), [texture]);
   return (
     <sprite position={[x, y, z]} scale={[1.6, 0.55, 1]}>
@@ -98,6 +99,7 @@ export default function MovementScene({
   selected?: string;
   onSelect: (symbol: string) => void;
 }) {
+  const { colors } = useTheme();
   const supported = useMemo(() => {
     try {
       return !!document.createElement("canvas").getContext("webgl2");

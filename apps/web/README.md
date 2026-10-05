@@ -1,6 +1,6 @@
 # CoSoup web research workspace
 
-The responsive React application connects to the private FastAPI server. It provides daily report review, an interactive 3D movement map, daily OHLC candles, historical scans, portfolio journaling and reviewed imports, persistent job activity, schedules, retention controls and an optional natural-language analyst.
+The responsive React application connects to the private FastAPI server. It provides daily report review, a movement list with an optional interactive 3D map, daily OHLC candles, historical scans, portfolio journaling and reviewed imports, persistent job activity, schedules, retention controls and an optional natural-language analyst.
 
 ## Run and deploy
 
@@ -43,11 +43,11 @@ For loopback-only development, explicitly configure `browser_origin` to the exac
 - Select a stock to inspect daily OHLC candles and volume. SMA50/SMA200 use available warmup. The breakout line uses the selected report's level. Missing expected sessions are gaps. Candle color compares open to close; map color compares the selected period's starting and ending closes.
 - Chart windows span 21/63/252 sessions within the server's 260-session cache. Indicators earlier in the window may lack sufficient warmup. Split-adjusted price movement excludes dividends and is not a portfolio or trading return. Relative strength remains a separate screening-window metric in percentage points versus SPY.
 
-The 3D renderer loads on demand, uses a fixed camera and has a complete list fallback when WebGL is unavailable. Mobile uses touch controls and a focused stock detail area. An accessible daily-price table accompanies the canvas chart. Technical charts and research never substitute demo prices for unavailable market inputs.
+Research opens in List mode; select **3D** to open the movement map. The 3D renderer loads on demand, uses a fixed camera and has a complete list fallback when WebGL is unavailable. Mobile uses touch controls and a focused stock detail area. An accessible daily-price table accompanies the canvas chart. Technical charts and research never substitute demo prices for unavailable market inputs.
 
 ## Research and operations
 
-Home exposes JSON and Markdown reports and a date-coverage preview before scan submission. Offline defaults require existing dated inputs; online runs fetch only missing days under the shared provider rate limiter. Historical/live signals remain labeled separately in report content. Full rejected-security detail remains a server extension; aggregate filtering reasons and research gaps are available now.
+Home puts the current daily report first. Open **Make a fresh serving** for date-coverage preview and scan submission, and **Saved servings** for report history, JSON/Markdown downloads and weekly summaries. Offline defaults require existing dated inputs; online runs fetch only missing days under the shared provider rate limiter. Historical/live signals remain labeled separately in report content. Full rejected-security detail remains a server extension; aggregate filtering reasons and research gaps are available now.
 
 If a scan fails with `scan_blocked`, open its Activity entry and inspect **Scan diagnostics** for the saved report's status and exact errors. This also works for existing failed jobs whose progress does not contain a report ID. Resolve the reported source/cache/quality issue before resuming; a blocked report does not establish an absence of opportunities.
 
@@ -56,6 +56,14 @@ Portfolio supports actual entries, unknown opening basis, fees, splits and audit
 Activity follows persisted jobs/events, cancels cooperatively and resumes stopped work explicitly after its cause is resolved. SSE refreshes job state, with bounded polling fallback and refresh on visibility restoration. Lists paginate in batches of 100; event responses show their bounded first page and expose the API cursor for later history.
 
 More provides schedules/occurrences, retention policy, archive/restore jobs, immutable rule versions, preferences and analyst tasks. Scheduler execution belongs to the home server, not the browser. Secret files, host kernel settings, SMTP and Codex runtime verification remain operator configuration. The server still requires a mail delivery adapter before it can send scheduled reports.
+
+## Appearance and the kitchen
+
+The header offers light/dark mode and a global animation pause. The initial theme follows the device; explicit choices persist using only `cosoup.theme` and `cosoup.motion` in localStorage. Device reduced-motion settings always take priority. Theme colors also apply to candles and the optional 3D map.
+
+Steve tosses illustrative stock symbols while scan, summary or analysis jobs run. A newly published report triggers the serving pose. **Let him cook** plays a decorative animation without submitting work. The kitchen does not supply market prices, candidate counts or completion estimates; those come from dated reports and persisted jobs. Errors and coverage gaps retain their exact diagnostics.
+
+The bowl mark uses a small Blender-rendered WebP loop; Steve uses local cel artwork with a Canvas animation. Animations pause offscreen or while the page is hidden, and the global pause replaces the bowl loop with a still image. Assets are self-hosted and require no external media service. See the [editable animation source and Blender commands](../../tools/mascots/README.md).
 
 ## Natural-language analysis and vision
 

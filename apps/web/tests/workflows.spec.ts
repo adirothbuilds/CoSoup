@@ -22,11 +22,13 @@ test('real research map, daily candles and data dates',{tag:'@cached'},async({pa
     expect(size?.height).toBeGreaterThanOrEqual(44);
   }
   await page.getByRole('button',{name:'List',exact:true}).click();await expect(page.locator('.scene')).toHaveCount(0);
-  expect(await page.evaluate(()=>localStorage.length)).toBe(0);
+  expect(await page.evaluate(()=>Object.keys(localStorage).every(key=>['cosoup.theme','cosoup.motion'].includes(key)))).toBe(true);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
 });
 
 test('scan preview queues a durable offline job once',async({page})=>{
+  const scan=page.locator('.scan-drawer');
+  if(!await scan.evaluate(el=>el.open))await scan.locator('summary').click();
   await page.getByRole('button',{name:'Preview date coverage'}).click();
   await expect(page.getByRole('button',{name:'Queue scan',exact:true})).toBeEnabled();
   const response=page.waitForResponse(r=>r.url().endsWith('/api/v1/scans')&&r.request().method()==='POST');

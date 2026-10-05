@@ -1,3 +1,4 @@
+import { KitchenScene } from "../../components/Kitchen";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -47,6 +48,13 @@ export function Analyst({
   const [error, setError] = useState<unknown>();
   const [busy, setBusy] = useState(false);
   const run = useAction(api, "/agent/tasks");
+  const jobs = useQuery({
+    queryKey: ["jobs"],
+    queryFn: () => api.jobs(),
+    refetchInterval: 5000,
+  });
+  const taskId = run.data && "job_id" in run.data ? run.data.job_id : undefined;
+  const task = jobs.data?.find((job) => job.id === taskId);
   const request: AgentRequest = {
     task_type: type,
     prompt: prompt || "Review the selected context",
@@ -74,111 +82,139 @@ export function Analyst({
   }
   return (
     <Panel
-      title="Research analyst"
+      title="A second pair of eyes: Steve"
       aside={<Badge>{status.data?.capabilities.codex ?? "Unknown"}</Badge>}
     >
       <div className="padded">
+        <div className="analyst-welcome">
+          <div>
+            <p className="eyebrow">LET HIM COOK. KEEP YOUR OWN JUDGMENT.</p>
+            <p className="muted">
+              Steve helps you ask better questions. He doesn't make your
+              decisions.
+            </p>
+          </div>
+          <div className="analyst-kitchen">
+            <KitchenScene
+              working={!!task && ["queued", "running"].includes(task.status)}
+            />
+          </div>
+        </div>
         <p className="muted">
           Ask a question in natural language using dated reports, signal
           observations and explicitly authorized personal evidence.
         </p>
-        <div className="form-grid">
-          <label>
-            Task
-            <select
-              value={type}
-              onChange={(e) =>
-                setType(e.target.value as AgentRequest["task_type"])
-              }
-            >
-              {[
-                "daily_review",
-                "weekly_review",
-                "portfolio_review",
-                "document_review",
-              ].map((t) => (
-                <option key={t}>{t}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Report
-            <select value={report} onChange={(e) => setReport(e.target.value)}>
-              <option value="">Dated reports in range</option>
-              {reports.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.data_date} · {r.mode}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            From (optional)
-            <input
-              type="date"
-              value={start}
-              onChange={(e) => setStart(e.target.value)}
-            />
-          </label>
-          <label>
-            Through (optional)
-            <input
-              type="date"
-              value={end}
-              onChange={(e) => setEnd(e.target.value)}
-            />
-          </label>
-          <label>
-            Portfolio (optional)
-            <select
-              value={portfolio}
-              onChange={(e) => setPortfolio(e.target.value)}
-            >
-              <option value="">No portfolio</option>
-              {portfolios.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={allowPortfolio}
-              onChange={(e) => setAllowPortfolio(e.target.checked)}
-            />
-            Authorize selected portfolio/report export to the model service
-          </label>
-          <label className="full">
-            Your question
-            <textarea
-              rows={4}
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Which candidates deserve a closer look, and what information is missing?"
-            />
-          </label>
-          <label>
-            Attach image for vision
-            <input
-              type="file"
-              accept="image/png,image/jpeg"
-              disabled={busy || images.length >= 4}
-              onChange={(e) => {
-                if (e.target.files?.[0]) void upload(e.target.files[0]);
-              }}
-            />
-          </label>
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={allowImages}
-              onChange={(e) => setAllowImages(e.target.checked)}
-            />
-            Authorize attached images to be sent to the model service
-          </label>
-        </div>
+        <label className="full">
+          Your question
+          <textarea
+            rows={4}
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="Which candidates deserve a closer look, and what information is missing?"
+          />
+        </label>
+        {status.data &&
+          status.data.capabilities.codex !== "operator_verified" && (
+            <p className="muted small">
+              Steve's analysis isn't connected yet. You can still preview the
+              research sources below.
+            </p>
+          )}
+        <Disclosure title="Sources, dates & permissions">
+          <div className="form-grid">
+            <label>
+              Task
+              <select
+                value={type}
+                onChange={(e) =>
+                  setType(e.target.value as AgentRequest["task_type"])
+                }
+              >
+                {[
+                  "daily_review",
+                  "weekly_review",
+                  "portfolio_review",
+                  "document_review",
+                ].map((t) => (
+                  <option key={t} value={t}>
+                    {t.replaceAll("_", " ")}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Report
+              <select
+                value={report}
+                onChange={(e) => setReport(e.target.value)}
+              >
+                <option value="">Dated reports in range</option>
+                {reports.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.data_date} · {r.mode}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              From (optional)
+              <input
+                type="date"
+                value={start}
+                onChange={(e) => setStart(e.target.value)}
+              />
+            </label>
+            <label>
+              Through (optional)
+              <input
+                type="date"
+                value={end}
+                onChange={(e) => setEnd(e.target.value)}
+              />
+            </label>
+            <label>
+              Portfolio (optional)
+              <select
+                value={portfolio}
+                onChange={(e) => setPortfolio(e.target.value)}
+              >
+                <option value="">No portfolio</option>
+                {portfolios.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={allowPortfolio}
+                onChange={(e) => setAllowPortfolio(e.target.checked)}
+              />
+              Authorize selected portfolio/report export to the model service
+            </label>
+            <label>
+              Attach image for vision
+              <input
+                type="file"
+                accept="image/png,image/jpeg"
+                disabled={busy || images.length >= 4}
+                onChange={(e) => {
+                  if (e.target.files?.[0]) void upload(e.target.files[0]);
+                }}
+              />
+            </label>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={allowImages}
+                onChange={(e) => setAllowImages(e.target.checked)}
+              />
+              Authorize attached images to be sent to the model service
+            </label>
+          </div>
+        </Disclosure>
         {images.length > 0 && (
           <p>
             {images.length} image(s) attached{" "}
@@ -561,8 +597,10 @@ export default function Operations({
   return (
     <>
       <Analyst api={api} portfolios={portfolios} reports={reports} />
-      <Schedules api={api} status={status.data} />
-      <Storage api={api} />
+      <Disclosure title="Kitchen settings: schedules & storage">
+        <Schedules api={api} status={status.data} />
+        <Storage api={api} />
+      </Disclosure>
       <Panel title="Preferences & rule versions">
         <div className="padded">
           <form

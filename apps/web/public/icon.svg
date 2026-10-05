@@ -1,1 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#131d29"/><path d="M14 43V31h8v12zm14 0V22h8v21zm14 0V12h8v31z" fill="#39d6bd"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-labelledby="title description">
+  <title id="title">CoSoup mark</title>
+  <desc id="description">A friendly teal and charcoal soup bowl with three candle-shaped steam marks.</desc>
+  <rect width="128" height="128" rx="28" fill="#0b121b" />
+  <g stroke-linecap="round">
+    <path d="M44 14v22M64 10v25M84 18v18" stroke="#92a4b8" stroke-width="2" />
+    <path d="M44 21v9" stroke="#39d6bd" stroke-width="7" />
+    <path d="M64 17v10" stroke="#eac483" stroke-width="7" />
+    <path d="M84 24v6" stroke="#f1867d" stroke-width="7" />
+  </g>
+  <path d="M16 56c3 33 19 53 48 53s45-20 48-53" fill="#1b2a3c" stroke="#39d6bd" stroke-width="3" />
+  <ellipse cx="64" cy="56" rx="48" ry="13" fill="#eac483" stroke="#39d6bd" stroke-width="3" />
+  <path d="M36 55c11-8 19 7 30 0s20 0 26 0" fill="none" stroke="#fff0cd" stroke-width="2" stroke-linecap="round" />
+  <circle cx="48" cy="83" r="3.5" fill="#edf3fa" />
+  <circle cx="80" cy="83" r="3.5" fill="#edf3fa" />
+  <path d="M54 96q10 8 20 0" fill="none" stroke="#eac483" stroke-width="2.5" stroke-linecap="round" />
+</svg>

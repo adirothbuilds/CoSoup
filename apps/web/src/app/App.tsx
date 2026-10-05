@@ -8,11 +8,12 @@ import {
   MoreHorizontal,
   Wallet,
   LogOut,
-  Server,
 } from "lucide-react";
 import { ApiClient } from "@stock-scanner/client";
 import { useWorkspace } from "@stock-scanner/client/queries";
 import { navigation, Page } from "@stock-scanner/design";
+import { BowlMark, KitchenScene } from "../components/Kitchen";
+import { ThemeControls } from "../components/Theme";
 import { ErrorBox } from "../components/UI";
 import Research from "../features/research/Research";
 import Portfolio from "../features/portfolio/Portfolio";
@@ -47,56 +48,74 @@ export default function App() {
   if (checking)
     return (
       <div className="connect-shell">
-        <p>Connecting to your private server…</p>
+        <div className="connecting">
+          <BowlMark />
+          <p>Warming up the kitchen…</p>
+        </div>
       </div>
     );
   if (!connected)
     return (
       <main className="connect-shell">
-        <div className="connect-card">
-          <BarChart3 size={36} />
-          <p className="eyebrow">PRIVATE RESEARCH</p>
-          <h1>CoSoup</h1>
-          <p className="muted">
-            Your market research, portfolio and history in one quiet workspace.
-          </p>
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              setBusy(true);
-              setError(null);
-              try {
-                await api.connect(token);
-                setConnected(true);
-              } catch (e) {
-                setError(e);
-              } finally {
-                setToken("");
-                setBusy(false);
-              }
-            }}
-          >
-            <label>
-              Owner token
-              <input
-                type="password"
-                autoComplete="off"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                required
-                minLength={32}
-              />
-            </label>
-            <button className="primary" disabled={busy}>
-              {busy ? "Connecting…" : "Connect to private server"}
-              <ChevronRight size={18} />
-            </button>
-          </form>
-          <ErrorBox error={error} />
-          <p className="muted small">
-            Token is exchanged for a protected session and cleared from the
-            form. Access stays on your LAN/VPN.
-          </p>
+        <div className="connect-preferences">
+          <ThemeControls />
+        </div>
+        <div className="connect-layout">
+          <div className="connect-story">
+            <p className="eyebrow">WELCOME TO THE KITCHEN</p>
+            <h2>
+              A little clarity.
+              <br />
+              <em>A calmer market.</em>
+            </h2>
+            <KitchenScene />
+          </div>
+          <div className="connect-card">
+            <BowlMark />
+            <p className="eyebrow">YOUR PRIVATE CORNER</p>
+            <h1>Come on in.</h1>
+            <p className="muted">
+              Your market research, portfolio and history in one quiet
+              workspace.
+            </p>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setBusy(true);
+                setError(null);
+                try {
+                  await api.connect(token);
+                  setConnected(true);
+                } catch (e) {
+                  setError(e);
+                } finally {
+                  setToken("");
+                  setBusy(false);
+                }
+              }}
+            >
+              <label>
+                Owner token
+                <input
+                  type="password"
+                  autoComplete="off"
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  required
+                  minLength={32}
+                />
+              </label>
+              <button className="primary" disabled={busy}>
+                {busy ? "Connecting…" : "Connect to private server"}
+                <ChevronRight size={18} />
+              </button>
+            </form>
+            <ErrorBox error={error} />
+            <p className="muted small">
+              Token is exchanged for a protected session and cleared from the
+              form. Access stays on your LAN/VPN.
+            </p>
+          </div>
         </div>
       </main>
     );
@@ -151,12 +170,14 @@ function Workspace({
       <a className="skip" href="#content">
         Skip to content
       </a>
-      <aside className="sidebar">
-        <a className="brand" href="#home">
-          <BarChart3 />
-          CoSoup
+      <header className="site-header">
+        <a className="brand" href="#home" onClick={() => navigate("Home")}>
+          <BowlMark />
+          <span>
+            CoSoup<small>research, simmered</small>
+          </span>
         </a>
-        <nav aria-label="Main navigation">
+        <nav className="main-nav" aria-label="Main navigation">
           {navigation.map((n) => {
             const Icon = icons[n];
             return (
@@ -166,41 +187,39 @@ function Workspace({
                 aria-current={page === n ? "page" : undefined}
                 onClick={() => navigate(n)}
               >
-                <Icon size={22} />
+                <Icon size={18} />
                 <span>{n}</span>
               </button>
             );
           })}
         </nav>
-        <div className="sidebar-footer">
-          <Server size={16} />
-          Private server
-          <button aria-label="Disconnect" onClick={() => void logout()}>
+        <div className="header-actions">
+          <ThemeControls />
+          <button
+            className="icon-button"
+            aria-label="Disconnect"
+            title="Leave your private kitchen"
+            onClick={() => void logout()}
+          >
             <LogOut size={18} />
           </button>
         </div>
-      </aside>
+      </header>
       <div className="main">
-        <header className="topbar">
+        <div className="page-heading">
           <h1>
             {page === "Research"
               ? "Market workspace"
               : page === "More"
-                ? "Operations"
+                ? "Settings & Steve"
                 : page}
           </h1>
-          <span className="muted">
+          <span className="session-note">
+            <span className="status-dot" aria-hidden="true" />
             {data.context.data?.latest_session ?? "Date unavailable"} · Market
             close data
           </span>
-          <button
-            className="mobile-logout"
-            onClick={() => void logout()}
-            aria-label="Disconnect"
-          >
-            <LogOut size={18} />
-          </button>
-        </header>
+        </div>
         <main id="content" className="content">
           <ErrorBox
             error={

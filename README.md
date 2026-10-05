@@ -41,7 +41,7 @@ Experimental personal research for US equity swing and medium/long-term opportun
   <p align="center">
     <img src="docs/assets/cosoup/mascots.png" alt="Steve, an anime chef holding a pan, beside the friendly charcoal and teal CoSoup bowl" width="640" />
   </p>
-  <p>Steve cooks the research; you make the decisions. The mascots are decorative, not a representation of live market data.</p>
+  <p>Steve cooks the research; you make the decisions. Switch between warm light and dark themes, or pause the animations. Steve tosses decorative stock symbols while jobs run and serves the bowl when a new report arrives; exact job progress and coverage stay visible.</p>
 </details>
 
 This is an alpha: optional integrations require private configuration and verification. Read the [validation notes](docs/VALIDATION.md) for what has actually been tested. Technology badges describe declared dependencies and the documented development toolchain; they are not CI status indicators.
@@ -84,7 +84,7 @@ Configure Tailscale Serve or another trusted HTTPS reverse proxy to forward that
 
 Edit **only that `.env`** for your actual `MASSIVE_API_KEY`, optional integrations and other settings, then rerun the same setup command. It generates the internal JSON/secret mounts and retains data and credentials. Dev and prod have separate databases and secrets. The script detects the OS; `--mode` selects the environment explicitly, and `--root /absolute/path` selects a custom private directory. Docker Desktop/host sleep pauses scheduling.
 
-For the first scan, open **Home**, uncheck **Offline: require existing dated cache**, select **Preview date coverage**, then **Queue scan**. Follow progress in **Activity**; initial acquisition needs 260 trading sessions and can take over an hour at the shared provider limit. Later online scans download only missing days. Offline scans require the selected session's inputs to be cached already.
+For the first scan, open **Home → Make a fresh serving**, uncheck **Offline: require existing dated cache**, select **Preview date coverage**, then **Queue scan**. Follow progress in **Activity**; initial acquisition needs 260 trading sessions and can take over an hour at the shared provider limit. Later online scans download only missing days. Offline scans require the selected session's inputs to be cached already.
 
 When a scan finishes, Home refreshes its latest report and candidate count. Open **Research** to inspect movement, daily candles and coverage details. A `partial_coverage` report can contain valid candidates alongside excluded or missing histories; a blocked scan shows its candidate count as unavailable. Research reads existing cached data, so changing the movement period does not start another provider download. Updating the application with the same setup command retains this cache.
 

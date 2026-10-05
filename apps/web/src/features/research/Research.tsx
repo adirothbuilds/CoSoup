@@ -20,6 +20,7 @@ import {
   Json,
   Metric,
   Panel,
+  statusLabel,
   Toggle,
 } from "../../components/UI";
 import Candles from "../charts/Candles";
@@ -45,7 +46,7 @@ export default function Research({
   const [reportId, setReportId] = useState(params.get("report") ?? "");
   const [portfolioId, setPortfolioId] = useState("");
   const [selected, setSelected] = useState(params.get("symbol") ?? "");
-  const [view, setView] = useState<"3D" | "List">("3D");
+  const [view, setView] = useState<"3D" | "List">("List");
   const report = daily.find((r) => r.id === reportId) ?? daily[0];
   const portfolio =
     portfolios.find((p) => p.id === portfolioId) ?? portfolios[0];
@@ -129,15 +130,19 @@ export default function Research({
             >
               {daily.map((r) => (
                 <option key={r.id} value={r.id}>
-                  {r.data_date} · {r.mode} · {r.quality}
+                  {r.data_date} · {statusLabel(r.quality)}
                 </option>
               ))}
             </select>
           </label>
         )}
       </div>
-    <div className="context-line">
-        {scope !== 'portfolio' && report && <>Scan <Badge>{report.quality}</Badge> · {report.mode} · </>}
+      <div className="context-line">
+        {scope !== "portfolio" && report && (
+          <>
+            Scan <Badge>{report.quality}</Badge> · {report.mode} ·{" "}
+          </>
+        )}
         {date
           ? `As of ${date} · Completed session`
           : "No daily report available"}
@@ -290,22 +295,24 @@ export default function Research({
               )}
               {bars.data && <Candles data={bars.data} pivot={metrics?.pivot} />}
               {metrics && (
-                <div className="metrics">
-                  <Metric label="Breakout" value={money(metrics.pivot)} />
-                  <Metric
-                    label="Extension"
-                    value={pct(metrics.pivot_extension * 100)}
-                  />
-                  <Metric
-                    label="Relative volume"
-                    value={`${metrics.volume_ratio.toFixed(1)}x`}
-                  />
-                  <Metric
-                    label="Relative strength"
-                    value={`${(metrics.rs_excess * 100).toFixed(1)} pp`}
-                    note={`${content.data?.rules?.rs_days ?? 63} sessions vs SPY`}
-                  />
-                </div>
+                <Disclosure title="Why it made the cut">
+                  <div className="metrics">
+                    <Metric label="Breakout" value={money(metrics.pivot)} />
+                    <Metric
+                      label="Extension"
+                      value={pct(metrics.pivot_extension * 100)}
+                    />
+                    <Metric
+                      label="Relative volume"
+                      value={`${metrics.volume_ratio.toFixed(1)}x`}
+                    />
+                    <Metric
+                      label="Relative strength"
+                      value={`${(metrics.rs_excess * 100).toFixed(1)} pp`}
+                      note={`${content.data?.rules?.rs_days ?? 63} sessions vs SPY`}
+                    />
+                  </div>
+                </Disclosure>
               )}
               <Disclosure title="Research & sources">
                 <ErrorBox error={content.error} />

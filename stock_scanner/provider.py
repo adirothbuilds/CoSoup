@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from .storage import atomic_json, read_json
 
 BASE = "https://api.massive.com"
+REQUEST_TIMEOUT_SECONDS = 15
 
 
 class ScopedRedirects(urllib.request.HTTPRedirectHandler):
@@ -86,7 +87,7 @@ class Client:
             stamps = [t for t in stamps if t > now - 60] + [now]
             atomic_json(ledger, {"requests": stamps})
             try:
-                with self.opener(req, timeout=40) as response:
+                with self.opener(req, timeout=REQUEST_TIMEOUT_SECONDS) as response:
                     data = json.load(response)
             except urllib.error.HTTPError as e:
                 try:

@@ -25,7 +25,13 @@ export function Panel({
     </section>
   );
 }
-export function ErrorBox({ error }: { error: unknown }) {
+export function ErrorBox({
+  error,
+  onRetry,
+}: {
+  error: unknown;
+  onRetry?: () => void;
+}) {
   if (!error) return null;
   return (
     <div className="error" role="alert">
@@ -33,6 +39,7 @@ export function ErrorBox({ error }: { error: unknown }) {
         {error instanceof ApiError ? error.code : "Request failed"}
       </strong>
       <span>{error instanceof Error ? error.message : String(error)}</span>
+      {onRetry && <button onClick={onRetry}>Try again</button>}
     </div>
   );
 }
@@ -47,6 +54,8 @@ export function statusLabel(status: string) {
         partial_coverage: "Coverage gaps",
         blocked_error: "Needs attention",
         blocked_quality: "Data needs attention",
+        blocked_provider: "Provider needs attention",
+        blocked_benchmarks: "Benchmark data missing",
         succeeded: "Served",
         failed: "Needs attention",
         running: "Cooking",
@@ -57,6 +66,11 @@ export function statusLabel(status: string) {
         ready: "Ready",
         live: "Daily research",
         historical_snapshot: "Historical research",
+        weekly: "Weekly summary",
+        weekly_live: "Weekly summary",
+        weekly_historical_snapshot: "Historical weekly summary",
+        scan: "Market scan",
+        agent: "Steve's analysis",
       } as Record<string, string>
     )[status] ?? status
   );
@@ -161,12 +175,14 @@ export function ActionState({
 export function Disclosure({
   title,
   children,
+  open,
 }: {
   title: string;
   children: ReactNode;
+  open?: boolean;
 }) {
   return (
-    <details className="disclosure">
+    <details className="disclosure" open={open}>
       <summary>{title}</summary>
       <div className="detail-content">{children}</div>
     </details>

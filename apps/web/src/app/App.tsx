@@ -148,8 +148,10 @@ function Workspace({
   logout: () => Promise<void>;
 }) {
   const readPage = () =>
-    navigation.find((n) => n.toLowerCase() === location.hash.slice(1)) ??
-    "Home";
+    location.hash === "#settings"
+      ? "More"
+      : (navigation.find((n) => n.toLowerCase() === location.hash.slice(1)) ??
+        "Home");
   const [page, setPage] = useState<Page>(readPage);
   const data = useWorkspace(api);
   const reports = data.reports.data ?? [];
@@ -188,7 +190,7 @@ function Workspace({
                 onClick={() => navigate(n)}
               >
                 <Icon size={18} />
-                <span>{n}</span>
+                <span>{n === "More" ? "Settings" : n}</span>
               </button>
             );
           })}
@@ -211,7 +213,7 @@ function Workspace({
             {page === "Research"
               ? "Market workspace"
               : page === "More"
-                ? "Settings & Steve"
+                ? "Settings"
                 : page}
           </h1>
           <span className="session-note">
@@ -236,6 +238,7 @@ function Workspace({
               jobs={jobs}
               latest={data.context.data?.latest_session}
               onResearch={() => navigate("Research")}
+              reportsReady={!data.reports.isPending}
             />
           ) : page === "Research" ? (
             <Research
@@ -247,7 +250,7 @@ function Workspace({
           ) : page === "Portfolio" ? (
             <Portfolio api={api} portfolios={portfolios} />
           ) : page === "Activity" ? (
-            <Activity api={api} jobs={jobs} />
+            <Activity api={api} jobs={jobs} reports={reports} />
           ) : (
             <Operations api={api} portfolios={portfolios} reports={reports} />
           )}

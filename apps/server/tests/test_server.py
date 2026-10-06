@@ -100,8 +100,18 @@ class ApiTests(ServerCase):
         self.assertEqual(r.status_code, 422)
         r = self.client.post("/api/v1/scan-plans", json={"mode": "historical_snapshot", "start_date": "2099-01-01", "end_date": "2099-01-02"})
         self.assertEqual(r.status_code, 422)
+
         r = self.client.get("/api/v1/market/coverage?start_date=wrong&end_date=wrong")
         self.assertEqual(r.status_code, 422)
+
+    def test_offline_research_is_rejected_before_planning_or_queuing(self):
+        for route in ["/api/v1/scans", "/api/v1/scan-plans"]:
+            for mode, research in [("live", "current"), ("historical_snapshot", "as_of_only")]:
+                response = self.client.post(route, json={"mode":mode, "research":research, "offline":True})
+                self.assertEqual(response.status_code, 422)
+                self.assertIn("requires online sources", response.text)
+        with self.database.session() as db:
+            self.assertFalse(list(db.scalars(select(Job))))
 
     def test_cancel_resume_events_and_stream(self):
         identity = self.post_job("scan", {})

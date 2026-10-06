@@ -6,6 +6,7 @@ import {
   Job,
   Report,
   terminalStatuses,
+  dateTime,
 } from "@stock-scanner/client";
 import {
   ActionState,
@@ -16,8 +17,28 @@ import {
   Json,
   Panel,
   useAction,
+  statusLabel,
 } from "../../components/UI";
 
+function failureReason(job: Job, reports: Report[]) {
+  const issue = reports.find(
+    (r) => r.job_id === job.id && r.quality.startsWith("blocked"),
+  )?.summary.errors?.[0];
+  const error =
+    issue && typeof issue === "object"
+      ? (issue as Record<string, unknown>)
+      : undefined;
+  const message = String(
+    error?.message ??
+      issue ??
+      job.error?.message ??
+      job.error?.code ??
+      "Inspect the exact error",
+  );
+  return /timed out|timeout/i.test(message)
+    ? `Provider timeout: ${message}`
+    : message;
+}
 function JobDetail({ api, job }: { api: ApiClient; job: Job }) {
   const qc = useQueryClient();
   const cancel = useAction(api, `/jobs/${job.id}/cancel`);
@@ -49,7 +70,7 @@ function JobDetail({ api, job }: { api: ApiClient; job: Job }) {
     return () => stream.close();
   }, [job.id, job.status, qc]);
   return (
-    <Panel title={job.kind} aside={<Badge>{job.status}</Badge>}>
+    <Panel title={statusLabel(job.kind)} aside={<Badge>{job.status}</Badge>}>
       <div className="padded">
         <div className="job-story">
           <BowlMark />
@@ -122,7 +143,7 @@ function JobDetail({ api, job }: { api: ApiClient; job: Job }) {
             )}
           </>
         )}
-        <Disclosure title="Job details">
+        <Disclosure title="Job details" open={job.status === "failed"}>
           <p className="muted small">{job.id}</p>
           <Json value={job.progress} />
           <Json value={job.result} />
@@ -151,12 +172,15 @@ function JobDetail({ api, job }: { api: ApiClient; job: Job }) {
         </div>
         <ActionState action={cancel} />
         <ActionState action={resume} />
-        <Disclosure title="Activity log & exact events">
+        <Disclosure
+          title="Activity log & exact events"
+          open={job.status === "failed"}
+        >
           <ErrorBox error={events.error} />
           {events.data?.map((e) => (
             <div className="event" key={e.id}>
               <small>
-                {e.at} · {e.level}
+                {dateTime(e.at)} · {e.level}
               </small>
               <strong>{e.code}</strong>
               <Json value={e.data} />
@@ -175,9 +199,11 @@ function JobDetail({ api, job }: { api: ApiClient; job: Job }) {
 export default function Activity({
   api,
   jobs,
+  reports = [],
 }: {
   api: ApiClient;
   jobs: Job[];
+  reports?: Report[];
 }) {
   const [selected, setSelected] = useState("");
   const job = jobs.find((j) => j.id === selected) ?? jobs[0];
@@ -199,9 +225,14 @@ export default function Activity({
               className={`job-row ${j.id === job?.id ? "active" : ""}`}
               onClick={() => setSelected(j.id)}
             >
-              <strong>{j.kind}</strong>
+              <strong>{statusLabel(j.kind)}</strong>
               <Badge>{j.status}</Badge>
-              <small>{new Date(j.created_at).toLocaleString()}</small>
+              <small>{dateTime(j.created_at)}</small>
+              {j.error && (
+                <small className="job-error-summary">
+                  {failureReason(j, reports)}
+                </small>
+              )}
             </button>
           ))
         ) : (

@@ -7,9 +7,9 @@ import {
   ColorType,
   Time,
 } from "lightweight-charts";
-import { Bars, chartWindow, money } from "@stock-scanner/client";
+import { Bars, chartWindow, money, shares } from "@stock-scanner/client";
 import { useTheme } from "../../components/Theme";
-import { Toggle } from "../../components/UI";
+import { Toggle, Disclosure } from "../../components/UI";
 
 export default function Candles({
   data,
@@ -27,9 +27,11 @@ export default function Candles({
   const shown = window.bars;
   const first = window.sessions[0];
   useEffect(() => {
+    setReadout(undefined);
     if (!container.current || !shown.length) return;
     const chart = createChart(container.current, {
       autoSize: true,
+      localization: { locale: "en-US", dateFormat: "yyyy-MM-dd" },
       height: 360,
       layout: {
         background: { type: ColorType.Solid, color: colors.panel },
@@ -87,7 +89,11 @@ export default function Candles({
         color: b.close >= b.open ? colors.positive : colors.negative,
       })),
     );
-    chart.panes()[1]?.setHeight(74);
+    chart.panes()[1]?.setHeight(100);
+    // Leave room for required TradingView attribution beneath the volume columns.
+    volume
+      .priceScale()
+      .applyOptions({ scaleMargins: { top: 0.1, bottom: 0.4 } });
     if (averages)
       for (const [key, color] of [
         ["sma50", colors.accent],
@@ -134,13 +140,12 @@ export default function Candles({
       {bar && (
         <p className="chart-readout">
           {bar.session} · O {money(bar.open)} · H {money(bar.high)} · L{" "}
-          {money(bar.low)} · C {money(bar.close)} · Vol{" "}
-          {bar.volume.toLocaleString("en-US")}
+          {money(bar.low)} · C {money(bar.close)} · Vol {shares(bar.volume)}
         </p>
       )}
       <p className="muted small">
         One candle = one completed trading session · Split-adjusted through{" "}
-        {data.adjustment_cutoff}
+        {data.adjustment_cutoff} · Volume shown rounded to whole shares
       </p>
       {data.missing_sessions.length > 0 && (
         <p className="warning">
@@ -148,8 +153,7 @@ export default function Candles({
           window. Gaps are not filled.
         </p>
       )}
-      <details>
-        <summary>Accessible daily prices</summary>
+      <Disclosure title="Accessible daily prices">
         <div className="table-scroll">
           <table>
             <thead>
@@ -170,13 +174,13 @@ export default function Candles({
                   <td>{money(b.high)}</td>
                   <td>{money(b.low)}</td>
                   <td>{money(b.close)}</td>
-                  <td>{b.volume.toLocaleString()}</td>
+                  <td>{shares(b.volume)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </details>
+      </Disclosure>
     </div>
   );
 }

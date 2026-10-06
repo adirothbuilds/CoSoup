@@ -66,6 +66,7 @@ def scan(context, adapter=None):
             row = Report(owner_id=job.owner_id, job_id=job.id, data_date=session, mode=planning["mode"],
                          quality=result["status"], artifact_id=artifact.id, markdown_id=markdown.id,
                          summary={"coverage": result["coverage"], "candidate_count": len(result["candidates"]),
+                                  "run_at_utc": result.get("run_at_utc"), "research_run": result.get("research_run"),
                                   "errors": result["errors"], "provenance": result["provenance"], "details_artifact_id": details_id})
             db.add(row)
             db.flush()

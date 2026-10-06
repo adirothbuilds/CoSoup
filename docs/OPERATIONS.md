@@ -14,7 +14,7 @@ Set `SCANNER_STATE_DIR` to an owned directory outside the checkout with mode 070
 .venv/bin/python scanner.py preflight
 .venv/bin/python scanner.py ingest
 .venv/bin/python scanner.py daily
-.venv/bin/python scanner.py daily --offline
+.venv/bin/python scanner.py daily --offline --no-research
 .venv/bin/python scanner.py weekly
 .venv/bin/python scanner.py schedule-plan
 ```
@@ -23,7 +23,7 @@ Global `--config` and `--state-dir` options precede the subcommand. `--as-of` re
 
 `preflight` independently checks grouped daily access, complete SPY/IWM history, split history and dated listings. Success does not establish a particular subscription name or guarantee future entitlement.
 
-All provider requests share a persistent limiter, at least 13 seconds apart and at most five per rolling minute. Initial 260-session ingestion can take over an hour. Cached valid days are reused. There are no automatic entitlement retries; HTTP 429 persists a cooldown. Diagnose the exact error before an explicit new attempt. Do not delete cooldowns or bypass TLS/access policy. Corrupt caches are replaced atomically during an explicit resumed run.
+All provider requests share a persistent limiter, at least 13 seconds apart and at most five per rolling minute. Initial 260-session ingestion can take over an hour. Cached valid days are reused. Connection/read timeout is 15 seconds. There are no automatic provider retries; HTTP 429 persists a cooldown. Diagnose the exact error before an explicit new attempt. Do not delete cooldowns or bypass TLS/access policy. Corrupt caches are replaced atomically during an explicit resumed run.
 
 ## Result quality
 

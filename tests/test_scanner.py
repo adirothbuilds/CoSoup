@@ -182,6 +182,17 @@ class FakeClock:
 
 
 class ProviderTests(unittest.TestCase):
+    def test_timeout_is_bounded_and_does_not_retry(self):
+        calls = []
+        with tempfile.TemporaryDirectory() as d:
+            def opener(request, timeout):
+                calls.append(timeout)
+                raise TimeoutError("The read operation timed out")
+            with self.assertRaises(ProviderError) as ctx:
+                Client(Path(d), 'fake-private-key', opener).get('/test')
+            self.assertEqual(calls, [15])
+            self.assertIn('timed out', str(ctx.exception))
+            self.assertIn('no automatic retry', str(ctx.exception))
     def test_connection_blocker_keeps_exact_reason_without_secret(self):
         with tempfile.TemporaryDirectory() as d:
             def opener(request,timeout):raise urllib.error.URLError('Tunnel connection failed: 403 Forbidden private-value')
@@ -264,6 +275,7 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(report['status'],'blocked_provider'); self.assertFalse(report['candidates'])
             self.assertIn('A data failure is not', (directory/'report.md').read_text())
             self.assertEqual(read_json(directory/'report.json')['errors'][0]['http_status'],403)
+            self.assertEqual(report['research_run']['status'], 'blocked')
 
     def test_benchmark_failure_prevents_evaluation(self):
         sessions,stock,bench=fixtures()
@@ -284,6 +296,27 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(report['status'],'complete');self.assertEqual(len(report['candidates']),1)
             self.assertEqual(report['coverage']['insufficient_history'],1)
             self.assertEqual(len(previous_signals(Path(d))),1)
+            self.assertEqual(report['research_run']['status'], 'offline_unavailable')
+            self.assertTrue(report['research_run']['requested'])
+            self.assertTrue(any('cannot run offline' in w for w in report['warnings']))
+
+    def test_online_research_records_gaps_and_disabled_run_is_explicit(self):
+        sessions, stock, bench = fixtures()
+        listing = {'as_of':sessions[-1], 'retrieved_at':'test', 'results':[{'ticker':'T','type':'CS','primary_exchange':'XNAS','active':True,'market':'stocks','locale':'us'}]}
+        snapshot = {'first':sessions[0], 'last':sessions[-1], 'results':[]}
+        for enabled in [True, False]:
+            with tempfile.TemporaryDirectory() as d, patch('stock_scanner.workflow.Client'), patch('stock_scanner.workflow.universe',return_value=listing), patch('stock_scanner.workflow.splits',return_value=snapshot), patch('stock_scanner.workflow.ensure_grouped'), patch('stock_scanner.workflow.load_market',return_value=(np.array([bench,bench,stock]),{},[],defaultdict(list))), patch('stock_scanner.workflow.Researcher') as researcher:
+                researcher.return_value.candidate.return_value = {'facts':[], 'missing':['Financial source denied access']}
+                researcher.return_value.liquidity_examples.return_value = []
+                researcher.return_value.errors = [{'http_status':403,'message':'Financial source denied access'}]
+                _, report = daily(Path(d), Rules(), now='2026-10-02T21:00:00Z', with_research=enabled)
+                self.assertEqual(len(report['candidates']), 1)
+                self.assertEqual(report['research_run']['status'], 'partial' if enabled else 'not_requested')
+                self.assertEqual(report['research_run']['checked_symbols'], ['T'] if enabled else [])
+                if enabled:
+                    self.assertEqual(report['errors'][0]['http_status'], 403)
+                else:
+                    researcher.assert_not_called()
 
     def test_weekly_without_daily_is_blocked(self):
         with tempfile.TemporaryDirectory() as d:

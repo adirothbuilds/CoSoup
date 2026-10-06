@@ -30,6 +30,14 @@ def daily(state, rules, now=None, offline=False, with_research=True, recheck_res
                   "Split-adjusted data excludes dividends. Relative strength is excess price change over the same window.",
                   "The listing snapshot is for the data date, not a delisted-company database; it cannot establish backtest performance."]}
     results = []
+    report["research_run"] = {
+        "requested": with_research,
+        "status": "not_requested" if not with_research else "offline_unavailable" if offline else "not_started",
+        "mode": "as_of_only" if knowledge_cutoff else "current",
+        "checked_symbols": [], "limit": rules.research_limit,
+    }
+    if offline and with_research:
+        report["warnings"].append("Company research was requested but cannot run offline; run online with research enabled")
     if knowledge_cutoff:
         report["knowledge_cutoff"] = knowledge_cutoff
         report["warnings"].append("Historical snapshot: news/filings use the dated cutoff and a separate cache. Provider-dated descriptions and subsequently revised source records are not a certified information-as-known archive.")
@@ -95,11 +103,17 @@ def daily(state, rules, now=None, offline=False, with_research=True, recheck_res
                 report["candidates"] = sorted((r for r in results if r["eligible"]), key=rank, reverse=True)
                 report["near_breakouts"] = sorted((r for r in results if r["near_breakout"]), key=rank, reverse=True)
                 if with_research and client is not None:
+                    report["research_run"]["status"] = "running"
                     researcher = Researcher(client, session, recheck_research, knowledge_cutoff=knowledge_cutoff)
                     for result in report["candidates"][:rules.research_limit]:
                         report["research"][result["symbol"]] = researcher.candidate(result)
                     report["liquidity_examples"] = researcher.liquidity_examples(results, metadata)
                     report["errors"].extend(researcher.errors)
+                    report["research_run"].update(
+                        status="no_candidates" if not report["candidates"] else "partial" if researcher.errors or any(r.get("missing") for r in report["research"].values()) else "complete",
+                        checked_symbols=list(report["research"]),
+                        unchecked_candidates=max(0, len(report["candidates"]) - len(report["research"])),
+                    )
                 else:
                     report["warnings"].append("Current-source research was not run; technical screening is not company research")
                     for r in sorted((r for r in results if r.get("data_valid") and any(k in r["failed_filters"] for k in ("average_share_volume", "average_dollar_volume"))), key=lambda r: r["avg_dollar_volume_50"], reverse=True)[:5]:
@@ -116,6 +130,8 @@ def daily(state, rules, now=None, offline=False, with_research=True, recheck_res
         report["status"] = "blocked_error"
         report["errors"].append({"type": type(e).__name__, "message": str(e)})
     finally:
+        if report["research_run"]["status"] in {"not_started", "running"}:
+            report["research_run"]["status"] = "blocked"
         if report["status"].startswith("blocked"):
             report["candidates"], report["near_breakouts"] = [], []
         if not report["coverage"].get("cached_sessions"):

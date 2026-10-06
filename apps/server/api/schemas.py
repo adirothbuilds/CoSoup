@@ -28,6 +28,8 @@ class ScanRequest(Input):
 
     @model_validator(mode="after")
     def dates(self):
+        if self.offline and self.research != "none":
+            raise ValueError("Company research requires online sources; disable offline or select research=none")
         if bool(self.start_date) != bool(self.end_date):
             raise ValueError("Provide both range dates or neither")
         if self.mode == "historical_snapshot" and self.research == "current":

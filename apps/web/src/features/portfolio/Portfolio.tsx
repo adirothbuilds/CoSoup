@@ -7,6 +7,7 @@ import {
   Transaction,
   reviewableRows,
   money,
+  dateTime,
 } from "@stock-scanner/client";
 import {
   ActionState,
@@ -325,6 +326,44 @@ export default function Portfolio({
     enabled: !!p,
   });
   const analysis = useAction(api, `/portfolios/${p?.id}/analysis-jobs`);
+  if (!p)
+    return (
+      <Panel title="Start your personal journal">
+        <div className="padded portfolio-welcome">
+          <p>
+            Keep your supplied holdings and actual transactions together. Create
+            a portfolio, then add entries or review an import.
+          </p>
+          <form
+            className="form-grid"
+            onSubmit={(e) => {
+              e.preventDefault();
+              create.mutate({
+                name: new FormData(e.currentTarget).get("name"),
+                currency: "USD",
+              });
+            }}
+          >
+            <label>
+              Portfolio name
+              <input
+                name="name"
+                aria-label="New portfolio name"
+                placeholder="My research portfolio"
+                required
+              />
+            </label>
+            <div>
+              <button className="primary" disabled={create.isPending}>
+                Create portfolio
+              </button>
+            </div>
+          </form>
+          <ActionState action={create} />
+        </div>
+      </Panel>
+    );
+
   return (
     <>
       <div className="workspace-controls">
@@ -436,7 +475,7 @@ export default function Portfolio({
                     {tx.type} {tx.symbol}
                   </strong>
                   <small>
-                    {new Date(tx.at).toLocaleString()} ·{" "}
+                    {dateTime(tx.at)} ·{" "}
                     {tx.external_ref ?? "No external reference"}
                   </small>
                 </div>

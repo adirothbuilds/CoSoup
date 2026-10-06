@@ -34,6 +34,14 @@ export interface DailyReport {
   filter_counts?: Record<string, number>;
   errors?: unknown[];
   warnings?: string[];
+  run_at_utc?: string;
+  research_run?: {
+    requested: boolean;
+    status: string;
+    checked_symbols: string[];
+    limit: number;
+    unchecked_candidates?: number;
+  };
   rules?: { rs_days?: number };
   [key: string]: unknown;
 }
@@ -251,81 +259,134 @@ type Options = {
   credential?: () => Promise<string | null>;
   fetcher?: typeof fetch;
   onUnauthorized?: () => void;
+  requestTimeoutMs?: number;
 };
 export class ApiClient {
   private csrf: string | null = null;
   constructor(private options: Options = {}) {}
+  private async bounded<T>(
+    task: (signal: AbortSignal) => Promise<T>,
+    milliseconds = this.options.requestTimeoutMs ?? 30000,
+  ): Promise<T> {
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        reject(
+          new ApiError(
+            0,
+            "request_timeout",
+            "The server request timed out. Jobs may continue on the server; check Activity before resubmitting.",
+          ),
+        );
+        controller.abort();
+      }, milliseconds);
+    });
+    try {
+      return await Promise.race([task(controller.signal), timeout]);
+    } finally {
+      clearTimeout(timer!);
+    }
+  }
   async request<T>(
     path: string,
     method = "GET",
     body?: unknown,
     key?: string,
+    responseType: "json" | "text" = "json",
   ): Promise<T> {
-    const headers: Record<string, string> = {};
-    const token = await this.options.credential?.();
-    if (token) headers.Authorization = `Bearer ${token}`;
-    if (this.csrf) headers["X-Scanner-CSRF"] = this.csrf;
-    if (key) headers["Idempotency-Key"] = key;
-    const multipart =
-      typeof FormData !== "undefined" && body instanceof FormData;
-    if (body !== undefined && !multipart)
-      headers["Content-Type"] = "application/json";
-    const response = await (this.options.fetcher ?? fetch)(
-      `${this.options.baseUrl ?? ""}/api/v1${path}`,
-      {
-        method,
-        headers,
-        credentials: this.options.credential ? "omit" : "include",
-        body:
-          body === undefined
-            ? undefined
-            : multipart
-              ? (body as FormData)
-              : JSON.stringify(body),
+    return this.bounded(
+      async (signal) => {
+        const headers: Record<string, string> = {};
+        const token = await this.options.credential?.();
+        if (token) headers.Authorization = `Bearer ${token}`;
+        if (this.csrf) headers["X-Scanner-CSRF"] = this.csrf;
+        if (key) headers["Idempotency-Key"] = key;
+        const multipart =
+          typeof FormData !== "undefined" && body instanceof FormData;
+        if (body !== undefined && !multipart)
+          headers["Content-Type"] = "application/json";
+        const response = await (this.options.fetcher ?? fetch)(
+          `${this.options.baseUrl ?? ""}/api/v1${path}`,
+          {
+            method,
+            signal,
+            headers,
+            credentials: this.options.credential ? "omit" : "include",
+            body:
+              body === undefined
+                ? undefined
+                : multipart
+                  ? (body as FormData)
+                  : JSON.stringify(body),
+          },
+        );
+        if (!response.ok) {
+          let error: {
+            error?: { code?: string; message?: string };
+            detail?: unknown;
+          } = {};
+          try {
+            error = await response.json();
+          } catch {
+            /* A proxy may return a non-JSON failure. */
+          }
+          if (response.status === 401) this.options.onUnauthorized?.();
+          throw new ApiError(
+            response.status,
+            error.error?.code ?? `http_${response.status}`,
+            error.error?.message ??
+              (typeof error.detail === "string"
+                ? error.detail
+                : `Request failed (${response.status})`),
+          );
+        }
+        const value =
+          responseType === "text"
+            ? await response.text()
+            : await response.json();
+        if (signal.aborted)
+          throw new ApiError(
+            0,
+            "request_timeout",
+            "The server request timed out.",
+          );
+        return value as T;
       },
+      typeof FormData !== "undefined" && body instanceof FormData
+        ? (this.options.requestTimeoutMs ?? 120000)
+        : undefined,
     );
-    if (!response.ok) {
-      let error: {
-        error?: { code?: string; message?: string };
-        detail?: unknown;
-      } = {};
-      try {
-        error = await response.json();
-      } catch {
-        /* A proxy may return a non-JSON failure. */
-      }
-      if (response.status === 401) this.options.onUnauthorized?.();
-      throw new ApiError(
-        response.status,
-        error.error?.code ?? `http_${response.status}`,
-        error.error?.message ??
-          (typeof error.detail === "string"
-            ? error.detail
-            : `Request failed (${response.status})`),
-      );
-    }
-    return (await response.json()) as T;
   }
   async connect(token: string): Promise<Session> {
-    const response = await (this.options.fetcher ?? fetch)(
-      `${this.options.baseUrl ?? ""}/api/v1/auth/session`,
-      {
-        method: "POST",
-        credentials: "include",
-        headers: { Authorization: `Bearer ${token}` },
-      },
-    );
-    if (!response.ok) {
-      const body = await response.json();
-      throw new ApiError(
-        response.status,
-        body.error?.code ?? "connect_failed",
-        body.error?.message ?? "Could not connect",
+    return this.bounded(async (signal) => {
+      const response = await (this.options.fetcher ?? fetch)(
+        `${this.options.baseUrl ?? ""}/api/v1/auth/session`,
+        {
+          method: "POST",
+          signal,
+          credentials: "include",
+          headers: { Authorization: `Bearer ${token}` },
+        },
       );
-    }
-    const session = (await response.json()) as Session;
-    this.csrf = session.csrf_token;
-    return session;
+      if (!response.ok) {
+        const body = await response.json();
+        throw new ApiError(
+          response.status,
+          body.error?.code ?? "connect_failed",
+          body.error?.message ?? "Could not connect",
+        );
+      }
+      const session = (await response.json()) as Session;
+      if (signal.aborted)
+        throw new ApiError(
+          0,
+          "request_timeout",
+          "The server request timed out.",
+        );
+      this.csrf = session.csrf_token;
+      return session;
+    }, this.options.requestTimeoutMs ?? 15000);
   }
   async session(): Promise<Session> {
     const s = await this.request<Session>("/auth/session");
@@ -342,6 +403,15 @@ export class ApiClient {
   report(id: string) {
     return this.request<DailyReport>(
       `/reports/${encodeURIComponent(id)}/content`,
+    );
+  }
+  markdown(id: string) {
+    return this.request<string>(
+      `/reports/${encodeURIComponent(id)}/content?format=markdown`,
+      "GET",
+      undefined,
+      undefined,
+      "text",
     );
   }
   portfolios() {
@@ -404,6 +474,37 @@ export const terminalStatuses = new Set([
   "cancelled",
   "waiting_for_archive",
 ]);
+export function usableDailyReport(
+  reports: Report[],
+  explicitId?: string | null,
+) {
+  const daily = reports.filter((r) =>
+    ["live", "historical_snapshot"].includes(r.mode),
+  );
+  return (
+    daily.find((r) => r.id === explicitId) ??
+    daily.find((r) => !r.quality.startsWith("blocked")) ??
+    daily[0]
+  );
+}
+export function researchState(report: DailyReport) {
+  if (report.research_run) return report.research_run.status;
+  if (Object.keys(report.research ?? {}).length) return "legacy_available";
+  if (report.status.startsWith("blocked")) return "blocked";
+  if (report.warnings?.some((w) => w.includes("research was not run")))
+    return "not_run";
+  return "unknown";
+}
+// UI timestamps use ISO dates and UTC throughout; journal entry inputs still use device time.
+export function dateTime(value: string | undefined | null) {
+  if (!value) return "Time unavailable";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "Time unavailable"
+    : `${date.toISOString().slice(0, 19).replace("T", " ")} UTC`;
+}
+export const shares = (value: number) =>
+  value.toLocaleString("en-US", { maximumFractionDigits: 0 });
 export function rangeBars(bars: Bars["bars"], range: "1M" | "3M" | "1Y") {
   return bars.slice(-{ "1M": 21, "3M": 63, "1Y": 252 }[range]);
 }

@@ -18,6 +18,7 @@ class FakeScanner:
         self.calls.append(session)
         directory = state/'runs'/f'{session}-{len(self.calls)}'; directory.mkdir(parents=True, mode=0o700)
         result = {'status': 'blocked_provider' if session == self.block else 'complete', 'coverage': {'evaluated': 1},
+                  'run_at_utc':session+'T21:00:00+00:00', 'research_run':{'requested':research,'status':'blocked' if session == self.block else 'not_requested'},
                   'candidates': [] if session == self.block else [{'symbol': 'ABC', 'close': 10, 'pivot': 9.9}],
                   'errors': [{'http_status':403, 'message':'Not entitled'}] if session == self.block else []}
         (directory/'report.json').write_text(json.dumps(result)); (directory/'report.md').write_text('# Scan\n')
@@ -38,6 +39,8 @@ class ScannerWorkerTests(ServerCase):
         self.assertEqual(set(self.job(identity).progress['report_ids']), {report['id'] for report in reports})
         blocked = next(report for report in reports if report['quality'].startswith('blocked'))
         self.assertEqual(blocked['summary']['errors'], [{'http_status':403, 'message':'Not entitled'}])
+        self.assertEqual(blocked['summary']['run_at_utc'], '2026-10-01T21:00:00+00:00')
+        self.assertEqual(blocked['summary']['research_run']['status'], 'blocked')
         self.client.post(f'/api/v1/jobs/{identity}/resume')
         adapter.block = None
         execute_one('scanner', lambda c: scan(c,adapter), self.database, self.settings)

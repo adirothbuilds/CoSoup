@@ -7,8 +7,102 @@ import {
   nativeServerUrl,
   pct,
   safeSource,
+  usableDailyReport,
+  researchState,
+  Report,
 } from "./index";
 describe("shared contracts and private transport", () => {
+  it("aborts a stalled request without automatically resubmitting a mutation", async () => {
+    vi.useFakeTimers();
+    try {
+      let signal: AbortSignal | undefined;
+      const fetcher = vi.fn((_url: unknown, options?: RequestInit) => {
+        signal = options?.signal as AbortSignal;
+        return new Promise<Response>(() => {});
+      }) as unknown as typeof fetch;
+      const api = new ApiClient({ fetcher, requestTimeoutMs: 15000 });
+      const outcome = expect(
+        api.request("/scans", "POST", { offline: true }, "same-intent"),
+      ).rejects.toMatchObject({ code: "request_timeout" });
+      await vi.advanceTimersByTimeAsync(15000);
+      await outcome;
+      expect(signal?.aborted).toBe(true);
+      expect(fetcher).toHaveBeenCalledTimes(1);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it("bounds connection and response-body waits as well as fetching headers", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetcher = vi.fn(async () => ({
+        ok: true,
+        json: () => new Promise(() => {}),
+        text: () => new Promise(() => {}),
+      })) as unknown as typeof fetch;
+      const api = new ApiClient({ fetcher, requestTimeoutMs: 15 });
+      for (const read of [
+        () => api.connect("test-private-token"),
+        () => api.request("/reports/example/content"),
+        () => api.markdown("example"),
+      ]) {
+        const outcome = expect(read()).rejects.toMatchObject({
+          code: "request_timeout",
+        });
+        await vi.advanceTimersByTimeAsync(15);
+        await outcome;
+      }
+      expect(fetcher).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it("prefers usable reports while preserving an explicit blocked-report selection", () => {
+    const blocked = {
+      id: "blocked",
+      mode: "live",
+      quality: "blocked_provider",
+    } as Report;
+    const usable = {
+      id: "good",
+      mode: "live",
+      quality: "partial_coverage",
+    } as Report;
+    expect(usableDailyReport([blocked, usable])?.id).toBe("good");
+    expect(usableDailyReport([blocked, usable], "blocked")?.id).toBe("blocked");
+    expect(usableDailyReport([blocked, usable], "expired-id")?.id).toBe("good");
+    expect(usableDailyReport([blocked])?.id).toBe("blocked");
+  });
+  it("distinguishes disabled research, source blocking and unknown legacy runs", () => {
+    expect(
+      researchState({
+        data_date: "2026-10-02",
+        status: "complete",
+        warnings: [
+          "Current-source research was not run; technical screening is not company research",
+        ],
+      }),
+    ).toBe("not_run");
+    expect(
+      researchState({ data_date: "2026-10-02", status: "blocked_provider" }),
+    ).toBe("blocked");
+    expect(
+      researchState({
+        data_date: "2026-10-02",
+        status: "complete",
+        research_run: {
+          requested: true,
+          status: "offline_unavailable",
+          checked_symbols: [],
+          limit: 5,
+        },
+      }),
+    ).toBe("offline_unavailable");
+    expect(researchState({ data_date: "2026-10-02", status: "complete" })).toBe(
+      "unknown",
+    );
+  });
   it("keeps unavailable movement distinct from zero", () => {
     const m = movementSchema.parse({
       data_date: "2026-10-02",

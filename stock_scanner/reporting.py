@@ -82,6 +82,8 @@ def daily_markdown(report):
         size = f"Market cap ${cap:,.0f} ({item.get('cap_class')})" if cap is not None else 'Market cap unverified; no claim that this is a small company'
         lines.append(f"- {safe_text(item['symbol'])} ({safe_text(item.get('name', ''))}): {item['avg_volume_50']:,.0f} shares, ${item['avg_dollar_volume_50']:,.0f} daily; {size}. Liquidity failures: {', '.join(FILTER_LABEL.get(k,k) for k in item['liquidity_failures'])}.")
     lines += ['', '## Research on leading candidates', '']
+    if report.get('research_run'):
+        lines += [f"Company research: {safe_text(report['research_run']['status'])}; requested: {safe_text(report['research_run']['requested'])}.", '']
     lines += research_markdown(report.get('research', {})) or ['No company research was produced in this run; a catalyst must not be inferred without a source.']
     lines += ['', '## Limitations', '']
     lines += [f'- {safe_text(w)}' for w in report.get('warnings', [])]

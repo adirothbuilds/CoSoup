@@ -47,6 +47,7 @@ export function Analyst({
   const [packet, setPacket] = useState<ContextPacket>();
   const [error, setError] = useState<unknown>();
   const [busy, setBusy] = useState(false);
+  const [showSetup, setShowSetup] = useState(false);
   const run = useAction(api, "/agent/tasks");
   const jobs = useQuery({
     queryKey: ["jobs"],
@@ -238,21 +239,48 @@ export function Analyst({
           >
             Preview structured context
           </button>
-          <button
-            className="primary"
-            disabled={
-              run.isPending ||
-              busy ||
-              !prompt.trim() ||
-              status.data?.capabilities.codex !== "operator_verified" ||
-              (!!portfolio && !allowPortfolio) ||
-              (images.length > 0 && !allowImages)
-            }
-            onClick={() => run.mutate(request)}
-          >
-            Queue analysis
-          </button>
+          {status.data?.capabilities.codex === "operator_verified" ? (
+            <button
+              className="primary"
+              disabled={
+                run.isPending ||
+                busy ||
+                !prompt.trim() ||
+                (!!portfolio && !allowPortfolio) ||
+                (images.length > 0 && !allowImages)
+              }
+              onClick={() => run.mutate(request)}
+            >
+              Queue analysis
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowSetup(!showSetup)}
+              aria-expanded={showSetup}
+            >
+              How to connect Steve
+            </button>
+          )}
         </div>
+        {showSetup && (
+          <div className="notice">
+            <strong>Connect the research analyst on your private server</strong>
+            <p>
+              Provision the dedicated Codex CLI runtime and its authentication,
+              verify its sandbox and source access, then enable and mark the
+              runtime operator-verified in the private server configuration.
+              Restart the API and analyst worker. The browser cannot configure
+              credentials or verify the runtime for you.
+            </p>
+            <a
+              href="https://github.com/adirothbuilds/CoSoup/blob/main/apps/server/README.md#optional-codex-terminal-worker"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Read the server setup guide ↗
+            </a>
+          </div>
+        )}
         <ErrorBox error={error ?? status.error} />
         <ActionState action={run} />
         {packet && (

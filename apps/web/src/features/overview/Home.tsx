@@ -1,6 +1,6 @@
 import { KitchenScene } from "../../components/Kitchen";
-import { ArrowRight, Plus, UtensilsCrossed } from "lucide-react";
-import { useState } from "react";
+import { ArrowRight, UtensilsCrossed } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   ApiClient,
@@ -9,6 +9,7 @@ import {
   ScanPlan,
   ScanRequest,
   terminalStatuses,
+  dateTime,
 } from "@stock-scanner/client";
 import {
   ActionState,
@@ -23,11 +24,18 @@ import {
 } from "../../components/UI";
 
 export function ScanForm({ api }: { api: ApiClient }) {
-  const [mode, setMode] = useState<ScanRequest["mode"]>("live");
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState("");
-  const [offline, setOffline] = useState(true);
-  const [research, setResearch] = useState<ScanRequest["research"]>("none");
+  const params = new URLSearchParams(location.search);
+  const requested = params.get("research");
+  const initialResearch =
+    requested === "current" || requested === "as_of_only" ? requested : "none";
+  const [mode, setMode] = useState<ScanRequest["mode"]>(
+    initialResearch === "as_of_only" ? "historical_snapshot" : "live",
+  );
+  const [start, setStart] = useState(params.get("start_date") ?? "");
+  const [end, setEnd] = useState(params.get("end_date") ?? "");
+  const [offline, setOffline] = useState(initialResearch === "none");
+  const [research, setResearch] =
+    useState<ScanRequest["research"]>(initialResearch);
   const body: ScanRequest = {
     mode,
     research,
@@ -49,10 +57,14 @@ export function ScanForm({ api }: { api: ApiClient }) {
         <label>
           Mode
           <select
+            aria-label="Mode"
             value={mode}
             onChange={(e) => {
               setMode(e.target.value as ScanRequest["mode"]);
-              setResearch("none");
+              if (research !== "none")
+                setResearch(
+                  e.target.value === "live" ? "current" : "as_of_only",
+                );
             }}
           >
             <option value="live">Latest completed session</option>
@@ -62,12 +74,14 @@ export function ScanForm({ api }: { api: ApiClient }) {
         <label>
           Company research
           <select
+            aria-label="Company research"
             value={research}
-            onChange={(e) =>
-              setResearch(e.target.value as ScanRequest["research"])
-            }
+            onChange={(e) => {
+              setResearch(e.target.value as ScanRequest["research"]);
+              if (e.target.value !== "none") setOffline(false);
+            }}
           >
-            <option value="none">None</option>
+            <option value="none">Technical screening only</option>
             <option value={mode === "live" ? "current" : "as_of_only"}>
               {mode === "live" ? "Current sources" : "Dated sources"}
             </option>
@@ -96,12 +110,21 @@ export function ScanForm({ api }: { api: ApiClient }) {
         <label className="check full">
           <input
             type="checkbox"
+            aria-label="Offline: require existing dated cache"
             checked={offline}
-            onChange={(e) => setOffline(e.target.checked)}
+            onChange={(e) => {
+              setOffline(e.target.checked);
+              if (e.target.checked) setResearch("none");
+            }}
           />
           Offline: require existing dated cache
         </label>
       </div>
+      <p className="muted small" role="status">
+        {research === "none"
+          ? "Company research is off. Select current or dated sources to include it; this requires online access."
+          : "Company research is on, so offline is off. Source requests use the shared provider rate limit."}
+      </p>
       <div className="inline">
         <button
           disabled={
@@ -182,13 +205,7 @@ function ReportView({ api, report }: { api: ApiClient; report: Report }) {
         <button
           onClick={async () => {
             try {
-              const r = await fetch(
-                `/api/v1/reports/${report.id}/content?format=markdown`,
-                { credentials: "include" },
-              );
-              if (!r.ok)
-                throw new Error(`Report download failed (${r.status})`);
-              save(await r.text(), "text/markdown", "md");
+              save(await api.markdown(report.id), "text/markdown", "md");
             } catch (e) {
               setError(e);
             }
@@ -200,7 +217,7 @@ function ReportView({ api, report }: { api: ApiClient; report: Report }) {
       {data.data && (
         <>
           <p className="muted">
-            {data.data.status} · Data {data.data.data_date}
+            {statusLabel(data.data.status)} · Data {data.data.data_date}
           </p>
           <Json value={data.data} />
         </>
@@ -214,12 +231,14 @@ export default function Home({
   jobs,
   latest,
   onResearch,
+  reportsReady = true,
 }: {
   api: ApiClient;
   reports: Report[];
   jobs: Job[];
   latest?: string;
   onResearch: () => void;
+  reportsReady?: boolean;
 }) {
   const [selected, setSelected] = useState("");
   const [offset, setOffset] = useState(0);
@@ -232,6 +251,18 @@ export default function Home({
   const daily = reports.find((r) =>
     ["live", "historical_snapshot"].includes(r.mode),
   );
+  const [scanTouched, setScanTouched] = useState(false);
+  const [scanOpen, setScanOpen] = useState(
+    new URLSearchParams(location.search).has("research"),
+  );
+  useEffect(() => {
+    if (
+      reportsReady &&
+      !scanTouched &&
+      !new URLSearchParams(location.search).has("research")
+    )
+      setScanOpen(!daily);
+  }, [reportsReady, daily?.id, scanTouched]);
   const weekly = useAction(api, "/weekly-summaries");
   const active = jobs.filter((j) => !terminalStatuses.has(j.status));
   const candidateCount = daily?.quality.startsWith("blocked")
@@ -281,7 +312,11 @@ export default function Home({
         <Metric
           label="Latest daily report"
           value={daily?.data_date ?? "Not served yet"}
-          note={daily ? statusLabel(daily.quality) : "Start with a fresh scan"}
+          note={
+            daily
+              ? `Scan outcome: ${statusLabel(daily.quality)}`
+              : "Start with a fresh scan"
+          }
         />
         <Metric
           label="Research candidates"
@@ -290,8 +325,8 @@ export default function Home({
             daily?.quality.startsWith("blocked")
               ? "Scan blocked; inspect its diagnostics"
               : daily?.quality === "partial_coverage"
-                ? "Results with coverage gaps"
-                : "Screening results, as they are"
+                ? "Passed screening among valid histories; coverage is incomplete"
+                : "Stocks that passed every screening rule"
           }
         />
         <Metric
@@ -304,11 +339,15 @@ export default function Home({
           }
         />
       </section>
-      <details className="scan-drawer" open={!daily}>
-        <summary>
-          <span>
-            <Plus size={18} /> Make a fresh serving
-          </span>
+      <details className="scan-drawer" open={scanOpen}>
+        <summary
+          onClick={(event) => {
+            event.preventDefault();
+            setScanTouched(true);
+            setScanOpen((open) => !open);
+          }}
+        >
+          <span>Make a fresh serving</span>
           <small>Preview the dates, then start a scan</small>
         </summary>
         <ScanForm api={api} />
@@ -342,11 +381,10 @@ export default function Home({
                 <div>
                   <strong>{r.data_date}</strong>
                   <small>
-                    {r.mode === "live"
-                      ? "Daily research"
-                      : r.mode === "historical_snapshot"
-                        ? "Historical research"
-                        : "Weekly review"}
+                    {statusLabel(r.mode)} ·{" "}
+                    {r.summary.run_at_utc
+                      ? dateTime(r.summary.run_at_utc)
+                      : `Run ${r.id.slice(0, 8)}`}
                   </small>
                 </div>
                 <Badge>{r.quality}</Badge>

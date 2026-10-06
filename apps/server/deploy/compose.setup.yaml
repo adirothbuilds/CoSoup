@@ -22,7 +22,7 @@ services:
   storage-worker:
     <<: *setup
   codex-worker:
-    platform: linux/amd64
+    platform: "${COSOUP_CODEX_PLATFORM:-linux/amd64}"
     image: cosoup-${MODE}-codex:local
     labels: *labels
   web:

@@ -1,5 +1,7 @@
 ARG POSTGRES_IMAGE=postgres@sha256:639ab7ceb90e13123085b741fb31ef493fba25463002f6da665352e7b534b652
 FROM ${POSTGRES_IMAGE} AS pgtools
+# Normalize the client library path across Debian amd64 and arm64 images.
+RUN mkdir -p /pgtools && cp /usr/lib/*-linux-gnu/libpq.so.5.18 /pgtools/libpq.so.5.18
 
 FROM python:3.12-slim-bookworm AS base
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
@@ -13,8 +15,8 @@ RUN --mount=type=secret,id=build_ca,required=false,mode=0444 \
     tesseract-ocr poppler-utils bubblewrap && rm -rf /var/lib/apt/lists/* /etc/apt/apt.conf.d/99-build-ca
 COPY --from=pgtools /usr/lib/postgresql/17/bin/pg_dump /usr/local/bin/pg_dump
 COPY --from=pgtools /usr/lib/postgresql/17/bin/pg_restore /usr/local/bin/pg_restore
-COPY --from=pgtools /usr/lib/x86_64-linux-gnu/libpq.so.5.18 /usr/lib/x86_64-linux-gnu/libpq.so.5.18
-RUN ln -sf libpq.so.5.18 /usr/lib/x86_64-linux-gnu/libpq.so.5
+COPY --from=pgtools /pgtools/libpq.so.5.18 /usr/local/lib/libpq.so.5.18
+RUN ln -sf libpq.so.5.18 /usr/local/lib/libpq.so.5 && ldconfig
 COPY requirements.txt /app/requirements.txt
 COPY apps/server/requirements.txt /app/apps/server/requirements.txt
 RUN --mount=type=secret,id=build_ca,required=false,mode=0444 \

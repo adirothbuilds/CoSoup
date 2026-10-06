@@ -84,6 +84,9 @@ class SetupCommandTests(unittest.TestCase):
         self.assertEqual(len(ups), 2)
         self.assertTrue(all('--wait' in args for args in ups))
         self.assertNotIn('codex-worker', ups[-1])
+        from apps.server.deploy.setup import parse_env
+        compose = parse_env((self.private / "compose.env").read_text())
+        self.assertEqual(compose["COSOUP_CODEX_PLATFORM"], "linux/arm64")
         self.assertIn('http://127.0.0.1:8081', result.stdout)
         self.assertNotIn('ambient-fixture-not-for-deployment', (self.private / '.env').read_text())
         self.assertNotIn('ambient-fixture-not-for-deployment', result.stdout)

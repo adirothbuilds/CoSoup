@@ -137,6 +137,8 @@ Upload CSV, PNG/JPEG or PDF to `/uploads`, then submit `/imports` with `upload_i
 
 ## Optional Codex terminal worker
 
+For the one-env installer, follow [Connect Steve with ChatGPT](../../docs/SETUP.md#connect-steve-with-chatgpt). The setup overlay builds this worker natively on Apple Silicon and keeps core server/PostgreSQL services on their existing platform. Rerun setup after upgrading an older deployment so its generated `compose.env` includes the native worker platform. Changing only Docker's requested platform does not rebuild an existing amd64 image.
+
 Build the dedicated image with `docker compose ... --profile codex build codex-worker`. It contains the pinned official Codex terminal CLI, a dedicated analyst profile and a typed asynchronous API; it does not inherit the host's login/configuration. Provision authentication privately into `data/codex-profile` using the official CLI login workflow. API tasks are `daily_review`, `weekly_review` and `portfolio_review`; API payloads do not accept shell commands, CLI flags, host paths or arbitrary profiles as execution parameters. Portfolio export requires `allow_portfolio_data:true` and an explicit authorized portfolio.
 
 The wrapper copies authorized reports into a per-job workspace, runs headless terminal `codex exec`, validates structured output/source IDs and removes scratch. Current web research is disabled in this adapter. Missing sources are reported; model output cannot directly modify the journal, scheduler or repo. The model service receives authorized input contents, which can include portfolio data only with the explicit flag.

@@ -157,8 +157,10 @@ def prepare(root, mode, host_root, uid, gid, architecture, origin=None):
         write_private(root / "secrets" / name, values[key])
     write_private(root / "secrets/archive_key", archive_key)
     write_private(config_path, settings.model_dump_json(indent=2) + "\n")
+    native_platform = "linux/arm64" if architecture in {"arm64", "aarch64"} else "linux/amd64"
     compose = {"SERVER_ROOT": host_root, "SCANNER_UID": uid, "SCANNER_GID": gid, "MODE": mode,
-               "COMPOSE_PROJECT_NAME": project, "COSOUP_WEB_PLATFORM": "linux/arm64" if architecture in {"arm64", "aarch64"} else "linux/amd64"}
+               "COMPOSE_PROJECT_NAME": project, "COSOUP_WEB_PLATFORM": native_platform,
+               "COSOUP_CODEX_PLATFORM": native_platform}
     compose.update({key: values[key] for key in COMPOSE_KEYS if key in values})
     write_private(root / "compose.env", env_text(compose))
     write_private(env_path, env_text(values))

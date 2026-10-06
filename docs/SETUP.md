@@ -4,11 +4,11 @@
 
 ## Prerequisites
 
-- macOS: Docker Desktop installed, running and selected as the local Docker context. Intel and Apple Silicon are supported; the current server image uses amd64 emulation on Apple Silicon, while the web image is native.
+- macOS: Docker Desktop installed, running and selected as the local Docker context. Intel and Apple Silicon are supported; the core server uses amd64 emulation on Apple Silicon, while the web image and optional Steve worker use native ARM64.
 - Linux: an amd64 host with Docker Engine and Compose v2 installed and running, and a non-root account authorized to use Docker.
 - Deployment needs Bash and the OS's basic command-line tools. The streamed bootstrap additionally needs curl and tar. Host Python packages, Node, npm, Make, Xcode and a Python virtual environment are not needed to deploy.
 
-Docker/Desktop installation itself can require OS permissions and interactive setup, so the script checks those prerequisites instead of attempting to replace your Docker installation. ARM Linux is not supported by the current server Dockerfile. Docker Desktop sleep/shutdown pauses local scheduling.
+Docker/Desktop installation itself can require OS permissions and interactive setup, so the script checks those prerequisites instead of attempting to replace your Docker installation. ARM Linux is not enabled by this installer; its core deployment remains amd64. Docker Desktop sleep/shutdown pauses local scheduling.
 
 ## Start a Mac development deployment
 
@@ -98,6 +98,64 @@ curl -fsSL https://raw.githubusercontent.com/adirothbuilds/CoSoup/main/setup.sh 
 Use the same immutable commit in the raw URL and `--ref COMMIT_SHA` to select a fixed version. The bootstrap downloads source over verified HTTPS into a new private checkout under `~/.local/share/cosoup`, preserves earlier checkouts and deployment data, and delegates to that version's setup script. It prints the downloaded checkout path. It does not reset an existing developer checkout. When selecting a different ref, ensure it includes `setup.sh`.
 
 If an older installer stopped after starting PostgreSQL with `the input device is not a TTY`, rerun the curl command above to use the corrected installer. Database migration now explicitly disables TTY allocation, so it works through a pipe. Reuse the same mode and private root: setup preserves the existing database, env and credentials and continues with migration and application startup. For a custom root, include the same `--root` argument when rerunning.
+
+## Connect Steve with ChatGPT
+
+Steve is the optional Codex analyst worker. Authentication uses a dedicated private profile in `PRIVATE_ROOT/data/codex-profile`, separate from the host's Codex configuration. ChatGPT login needs no OpenAI API key in `.env`. Follow the [official device-code login instructions](https://developers.openai.com/codex/auth#login-on-headless-devices); enable device-code authentication in your ChatGPT account or workspace if required.
+
+First update/redeploy with the same mode and private root. This refreshes the generated Compose settings and preserves the existing database, market cache and dedicated login. On Apple Silicon, `COSOUP_CODEX_PLATFORM` in the generated `compose.env` selects `linux/arm64`; on Intel Macs and amd64 Linux it selects `linux/amd64`. Do not edit that generated file or force an amd64 analyst onto an ARM host: namespace creation under CPU emulation can fail even when native user namespaces work.
+
+From the new checkout printed by setup, define this helper. Use `prod` on Linux and set the same private root if customized:
+
+```sh
+cosoup_mode=dev
+cosoup_root="$HOME/.local/share/cosoup-$cosoup_mode"
+cosoup_compose() {
+  env -u SERVER_ROOT -u SCANNER_UID -u SCANNER_GID -u MODE \
+    -u COMPOSE_PROJECT_NAME -u COMPOSE_PROFILES \
+    -u COSOUP_WEB_PLATFORM -u COSOUP_CODEX_PLATFORM \
+    docker compose --env-file "$cosoup_root/compose.env" \
+      -f apps/server/deploy/compose.yaml \
+      -f apps/web/deploy/compose.yaml \
+      -f apps/server/deploy/compose.setup.yaml \
+      --profile codex "$@"
+}
+
+cosoup_compose build codex-worker
+```
+
+After the build succeeds, log in. Open the printed link in your own browser and enter the one-time code there; do not share the code or `auth.json`:
+
+```sh
+cosoup_compose run --rm -T --no-deps \
+  -e CODEX_HOME=/var/lib/codex-profile \
+  --entrypoint codex codex-worker login --device-auth
+
+cosoup_compose run --rm -T --no-deps \
+  -e CODEX_HOME=/var/lib/codex-profile \
+  --entrypoint codex codex-worker login status
+```
+
+If that profile already reports ChatGPT login, reuse it. Rebuilding the image or switching its architecture does not require deleting the profile.
+
+Check that Bubblewrap can start with the worker's actual Docker security settings:
+
+```sh
+cosoup_compose run --rm -T --no-deps \
+  --entrypoint bwrap codex-worker \
+  --unshare-all --share-net --ro-bind / / /usr/bin/true \
+  && printf 'NAMESPACE_OK\n'
+```
+
+This is a namespace smoke check running only `true`, not a complete analyst isolation check. Keep `CODEX_ENABLED=false` and `CODEX_SANDBOX_VERIFIED=false` until model access and all [worker isolation checks](../apps/server/README.md#optional-codex-terminal-worker) pass, including denied tool reads of authentication and other private files. The `bwrap` error mentioning setuid does not by itself identify the cause: Docker policy and CPU emulation can also block namespace creation. Do not mark an unsuccessful check as verified or use privileged mode, disable the analyst sandbox, or add broad container privileges to start Steve.
+
+After those checks pass, set `CODEX_ENABLED=true` and `CODEX_SANDBOX_VERIFIED=true` in the single private `.env`, rerun setup, and start the worker from the resulting checkout:
+
+```sh
+cosoup_compose up -d --no-build --no-deps codex-worker
+```
+
+Then open **Settings → Steve** and queue an authorized review. The default setup service start excludes this optional worker; login alone does not enable analysis.
 
 ## Manage the deployed stack
 

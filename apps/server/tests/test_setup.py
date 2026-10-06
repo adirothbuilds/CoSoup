@@ -33,19 +33,34 @@ class SetupConfigurationTests(unittest.TestCase):
         self.assertFalse(config["codex_enabled"])
         compose = parse_env((self.root / "compose.env").read_text())
         self.assertEqual(compose["COSOUP_WEB_PLATFORM"], "linux/arm64")
+        self.assertEqual(compose["COSOUP_CODEX_PLATFORM"], "linux/arm64")
         self.assertNotIn("API_TOKEN", compose)
         self.assertNotIn("MASSIVE_API_KEY", compose)
         for path in [self.root / ".env", self.root / "secrets/api_token", self.root / "config/server.json"]:
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+
+    def test_codex_platform_tracks_native_architecture_without_enabling_analysis(self):
+        for architecture, expected in [("arm64", "linux/arm64"), ("aarch64", "linux/arm64"),
+                                       ("x86_64", "linux/amd64"), ("amd64", "linux/amd64")]:
+            with self.subTest(architecture=architecture):
+                prepare(self.root, "dev", str(self.root), 501, 20, architecture)
+                compose = parse_env((self.root / "compose.env").read_text())
+                self.assertEqual(compose["COSOUP_CODEX_PLATFORM"], expected)
+                config = json.loads((self.root / "config/server.json").read_text())
+                self.assertFalse(config["codex_enabled"])
+                self.assertFalse(config["codex_sandbox_verified"])
 
     def test_rerun_preserves_credentials_and_existing_data(self):
         self.prepare()
         before = {path.name: path.read_bytes() for path in (self.root / "secrets").iterdir()}
         report = self.root / "data/reports/keep.md"
         report.write_text("Private test report")
+        auth = self.root / "data/codex-profile/auth.json"
+        auth.write_text('{"fixture": "dedicated-login-cache"}')
         self.prepare()
         self.assertEqual(before, {path.name: path.read_bytes() for path in (self.root / "secrets").iterdir()})
         self.assertEqual(report.read_text(), "Private test report")
+        self.assertEqual(auth.read_text(), '{"fixture": "dedicated-login-cache"}')
 
     def test_env_is_data_and_updates_only_the_intended_secret_and_settings(self):
         self.prepare()

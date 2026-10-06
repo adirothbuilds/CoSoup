@@ -67,7 +67,7 @@ From the repository root, deploy a local Mac test environment:
 ./setup.sh --mode dev --copy-token
 ```
 
-The script builds and migrates the full Docker stack, waits for health and opens [the local web app](http://127.0.0.1:8081). Paste the owner token from the clipboard into Connect, then clear your clipboard. The server uses amd64 emulation on Apple Silicon; the web image is native.
+The script builds and migrates the full Docker stack, waits for health and opens [the local web app](http://127.0.0.1:8081). Paste the owner token from the clipboard into Connect, then clear your clipboard. The core server uses amd64 emulation on Apple Silicon; the web image and optional Steve worker use native ARM64.
 
 For a Linux server, use your actual private HTTPS origin:
 
@@ -97,6 +97,8 @@ To manage the local deployment:
 ```
 
 On Linux use `--mode prod`, and include the same `--root` if customized. Stopping retains data. Use `./setup.sh --help` for options. See [the env reference and curl bootstrap](docs/SETUP.md), [Mac acceptance checks](docs/MACOS_LOCAL.md) and [validation records](docs/VALIDATION.md).
+
+Steve uses a dedicated Codex login and requires verified runtime isolation before activation. Follow [Connect Steve with ChatGPT](docs/SETUP.md#connect-steve-with-chatgpt) to build the native worker, sign in and check its sandbox. Its private login survives setup updates.
 
 ## Optional developer command
 

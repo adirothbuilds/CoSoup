@@ -23,6 +23,36 @@ from stock_scanner.storage import atomic_json
 
 
 class VisualApiTests(unittest.TestCase):
+    def test_two_year_view_merges_retained_and_rolling_split_references_once(self):
+        self.market(split=True)
+        shared=self.days[-4]
+        event={'ticker':'AVT','execution_date':shared,'split_from':1,'split_to':2}
+        for day in self.days:
+            if day<shared:
+                path=self.storage.path('market/raw/grouped/'+day+'.json.gz')
+                from stock_scanner.storage import read_json
+                payload=read_json(path)
+                item=payload['data']['results'][0]
+                for key in ['o','h','l','c']:item[key]*=2
+                item['v']/=2;atomic_json(path,payload)
+        first=calendar().previous_session(pd.Timestamp(self.days[0])).date().isoformat()
+        price=99.9*4
+        atomic_json(self.storage.path('market/raw/grouped/'+first+'.json.gz'),{'session':first,'adjusted':False,'data':{'adjusted':False,'results':[
+            {'T':'AVT','o':price-2,'h':price+4,'l':price-4,'c':price,'v':250,'t':int(calendar().session_close(pd.Timestamp(first)).timestamp()*1000)}]}})
+        path=self.storage.path('market/raw/splits/'+self.days[0]+'_'+self.days[-1]+'.json.gz')
+        atomic_json(path,{'first':self.days[0],'last':self.days[-1],'results':[event,{'ticker':'AVT','execution_date':self.days[-1],'split_from':1,'split_to':2}]})
+        old=self.storage.path('market/raw/splits/'+first+'_'+self.days[-2]+'.json.gz')
+        atomic_json(old,{'first':first,'last':self.days[-2],'results':[event]})
+        response=self.client.get('/api/v1/market/tickers/AVT/bars',params={'end_date':self.days[-1],'lookback_years':2},headers=self.auth)
+        self.assertEqual(response.status_code,200,response.text)
+        result=response.json();self.assertEqual(len(result['bars']),261)
+        self.assertAlmostEqual(result['bars'][0]['close'],99.9)
+        self.assertEqual(result['quality'],'partial_coverage')
+        atomic_json(old,{'first':first,'last':self.days[-2],'results':[{**event,'split_to':3}]})
+        response=self.client.get('/api/v1/market/tickers/AVT/bars',params={'end_date':self.days[-1],'lookback_years':2},headers=self.auth)
+        self.assertEqual(response.status_code,409)
+        self.assertEqual(response.json()['error']['code'],'split_reference_conflict')
+
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory()
         self.root=Path(self.temp.name)

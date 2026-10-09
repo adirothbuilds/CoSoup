@@ -56,4 +56,9 @@ def tick(database, settings, at=None):
             if Storage(settings).status(db)["pressure"]:
                 bucket = int(at.timestamp())//settings.maintenance_interval_seconds
                 enqueue(db, settings.owner_id, "archive", {}, key=f"pressure-archive:{bucket}")
+        # Deterministic marking uses cached data even if the scan/model failed.
+        # New decisions require an actually succeeded fresh scan, not a timer.
+        from ...services.paper import pump
+        from ...services.storage import Storage
+        pump(db, Storage(settings), settings, at)
     return count

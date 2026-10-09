@@ -67,10 +67,10 @@ export function useMovement(
     gcTime: 1800000,
   });
 }
-export function useBars(api: ApiClient, symbol?: string, date?: string) {
+export function useBars(api: ApiClient, symbol?: string, date?: string, lookbackYears: 1 | 2 = 1) {
   return useQuery({
-    queryKey: ["bars", symbol, date],
-    queryFn: () => api.bars(symbol!, date),
+    queryKey: ["bars", symbol, date, lookbackYears],
+    queryFn: () => api.bars(symbol!, date, lookbackYears),
     enabled: !!symbol && !!date,
     staleTime: 300000,
     gcTime: 1800000,

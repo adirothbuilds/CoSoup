@@ -438,9 +438,11 @@ export class ApiClient {
       input,
     ).then((x) => movementSchema.parse(x));
   }
-  bars(symbol: string, end?: string) {
+  bars(symbol: string, end?: string, lookbackYears: 1 | 2 = 1) {
+    const params=new URLSearchParams({lookback_years:String(lookbackYears)});
+    if(end)params.set('end_date',end);
     return this.request<unknown>(
-      `/market/tickers/${encodeURIComponent(symbol)}/bars${end ? `?end_date=${encodeURIComponent(end)}` : ""}`,
+      `/market/tickers/${encodeURIComponent(symbol)}/bars?${params}`,
     ).then((x) => barsSchema.parse(x));
   }
   status() {
@@ -505,10 +507,10 @@ export function dateTime(value: string | undefined | null) {
 }
 export const shares = (value: number) =>
   value.toLocaleString("en-US", { maximumFractionDigits: 0 });
-export function rangeBars(bars: Bars["bars"], range: "1M" | "3M" | "1Y") {
-  return bars.slice(-{ "1M": 21, "3M": 63, "1Y": 252 }[range]);
+export function rangeBars(bars: Bars["bars"], range: "1M" | "3M" | "1Y" | "2Y") {
+  return bars.slice(-{ "1M": 21, "3M": 63, "1Y": 252, "2Y":520 }[range]);
 }
-export function chartWindow(data: Bars, range: "1M" | "3M" | "1Y") {
+export function chartWindow(data: Bars, range: "1M" | "3M" | "1Y" | "2Y") {
   const sessions = [
     ...new Set([
       ...data.bars.map((b) => b.session),
@@ -516,7 +518,7 @@ export function chartWindow(data: Bars, range: "1M" | "3M" | "1Y") {
     ]),
   ]
     .sort()
-    .slice(-{ "1M": 21, "3M": 63, "1Y": 252 }[range]);
+    .slice(-{ "1M": 21, "3M": 63, "1Y": 252, "2Y":520 }[range]);
   const included = new Set(sessions);
   return { sessions, bars: data.bars.filter((b) => included.has(b.session)) };
 }

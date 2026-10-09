@@ -112,6 +112,11 @@ export default function SteveChat({
     queryKey: ["portfolios"],
     queryFn: () => api.portfolios(),
   });
+  const paper = useQuery({
+    queryKey: ["paper-experiments"],
+    queryFn: () => api.request<{ id: string }[]>("/paper/experiments"),
+    staleTime: 15000,
+  });
   const extracts = useQueries({
     queries: documents.map((d) => ({
       queryKey: ["chat-extraction", d.import_id],
@@ -194,6 +199,7 @@ export default function SteveChat({
     sharePortfolio || turns.some((t) => t.portfolio_export_authorized);
   const evidenceReady =
     approved.length > 0 ||
+    (paper.data?.length ?? 0) > 0 ||
     documents.length > 0 ||
     (sharePortfolio && !!portfolioId);
   const permissionsReady =

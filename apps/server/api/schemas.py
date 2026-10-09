@@ -63,6 +63,17 @@ class PortfolioRequest(Input):
     currency: Literal["USD"] = "USD"
 
 
+class PaperCreateRequest(Input):
+    name: str = Field('Codex paper portfolio', min_length=1, max_length=120)
+    initial_cash: Decimal = Field(Decimal('100000'), gt=0, le=1_000_000_000, max_digits=18, decimal_places=2)
+    max_positions: int = Field(10, ge=1, le=10)
+    max_position_weight: Decimal = Field(Decimal('0.20'), gt=0, le=1, max_digits=8, decimal_places=6)
+
+
+class PaperUpdateRequest(Input):
+    status: Literal['active','paused']
+
+
 class TransactionRequest(Input):
     type: Literal["buy", "sell", "opening", "deposit", "withdrawal", "dividend", "fee", "split"]
     at: datetime
@@ -154,8 +165,6 @@ class ChatRequest(Input):
             raise ValueError("Sharing attachments with Steve requires permission")
         if self.portfolio_id and not self.allow_portfolio_data:
             raise ValueError("Sharing the portfolio with Steve requires permission")
-        if not (self.report_ids or self.import_ids or self.upload_ids or self.portfolio_id):
-            raise ValueError("Select research, a portfolio, or an attachment")
         return self
 
 

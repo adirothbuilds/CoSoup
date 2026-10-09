@@ -1,5 +1,7 @@
 # Validation
 
+Latest local evidence: [two-year retained history and the prospective paper experiment](validation/PAPER_HISTORY_MAC_VALIDATION_2026-10-09.md). The appendix separates actual provider/model/browser results from synthetic accounting checks.
+
 ## Reproducible checks
 
 Run the scanner regression suite independently of optional server dependencies:

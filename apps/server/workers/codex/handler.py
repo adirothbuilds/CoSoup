@@ -11,6 +11,12 @@ from ...services.reports import publish, published
 
 
 def handle(context, analyst=None):
+    if context.job.kind == "paper_mark":
+        from ...services.paper import mark
+        return mark(context)
+    if context.job.kind == "paper_decision":
+        from ...services.paper import decide
+        return decide(context, analyst)
     existing = published(context, "agent")
     if existing:
         return existing
@@ -30,7 +36,7 @@ def handle(context, analyst=None):
             from PIL import Image
             inputs = context_packet(db, storage, context.settings, owner, request)
             end = inputs["end_date"]
-            if not inputs["reports"] and not inputs["imports"] and not inputs["images"] and not inputs["portfolio"] and request["task_type"] not in {"portfolio_review", "document_review"}:
+            if not inputs["reports"] and not inputs["imports"] and not inputs["images"] and not inputs["portfolio"] and not inputs.get('paper_experiments') and request["task_type"] not in {"portfolio_review", "document_review"}:
                 raise ServiceError("missing_reports", "No authorized reports exist for the requested period; scan or restore first")
             image_bytes = 0
             for i, image in enumerate(inputs["images"]):

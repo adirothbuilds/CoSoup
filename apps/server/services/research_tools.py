@@ -30,6 +30,8 @@ def analysis_catalog(packet):
                 add(source, 'holdings:'+manager['cik'], 'holdings', manager['name']+' · reported concentration', manager)
             if managers:
                 add(source, 'overlap', 'overlap', 'Common reported institutional positions', institutional_overlap(managers))
+    for experiment in packet.get('paper_experiments',[]):
+        add(experiment['id'],'paper','paper_experiment',experiment['name']+' · prospective experiment',experiment)
     return analyses
 
 
@@ -97,7 +99,8 @@ def catalog(packet):
         p=packet['portfolio']
         add(p['portfolio_id'],'basis','Recorded cost basis',[{'label':r['symbol'],'value':float(r['cost_basis'])} for r in p['positions'] if r.get('basis_known')],
             'USD',note='Known supplied cost basis only; not current market value. Unknown basis is excluded.')
-    return datasets[:160]
+    paper_datasets=[chart for experiment in packet.get('paper_experiments',[]) for chart in experiment.get('charts',[])]
+    return paper_datasets+datasets[:max(0,160-len(paper_datasets))]
 
 
 def screen(analysis, filters, limit=20):

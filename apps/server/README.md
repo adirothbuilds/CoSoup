@@ -160,6 +160,8 @@ All paths below have prefix `/api/v1`; authenticated OpenAPI provides exact payl
 | `GET /system/status`, `GET/PATCH /me`, `GET/POST /rules` | Status, owner preferences, immutable screening presets |
 | `GET /market/coverage`, `POST /scan-plans`, `POST /scans`, `POST /weekly-summaries`, `GET /signals` | Date coverage, missing-only acquisition, analysis and signal history |
 | `POST /research/sec-sync` | Owner-scoped public SEC research job; symbols/report and selected manager CIKs; no market refresh or model request |
+| `GET /market/history`, `POST /market/history/backfills` | Two-calendar-year coverage and durable missing-only provider acquisition |
+| `GET /paper/experiments`, `POST /paper/experiments`, `GET/PATCH /paper/experiments/{id}` | Owner-activated prospective hypothetical ledgers, future-open decisions and pause state |
 | `POST /agent/chat`, `GET /agent/conversations`, `GET /agent/conversations/{id}` | Source-scoped Codex conversation turns, saved responses and bounded recent history |
 | `GET /jobs`, `GET /jobs/{id}`, `POST /jobs/{id}/cancel`, `POST /jobs/{id}/resume` | Durable progress, cooperative cancellation and explicit recovery |
 | `GET /jobs/{id}/events`, `GET /jobs/{id}/events/stream` | Persisted events and SSE |

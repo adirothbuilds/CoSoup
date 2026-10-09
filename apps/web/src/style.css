@@ -2731,3 +2731,7 @@ summary:focus-visible {
  .steve-chat { height:calc(100dvh - 325px); min-height:380px; }
  .chat-body { min-height:120px; max-height:none; }
 }
+.paper-experiments .metric > strong {
+  font-size: 1.125rem;
+  font-variant-numeric: tabular-nums;
+}

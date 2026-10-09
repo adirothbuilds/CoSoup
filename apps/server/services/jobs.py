@@ -9,6 +9,8 @@ from ..errors import Cancelled, ServiceError
 from ..persistence.models import Event, Job, Reservation, now, uid
 
 QUEUES = {"scan": "scanner", "weekly": "scanner", "portfolio_analysis": "scanner", "sec_sync": "scanner",
+          "market_backfill": "scanner",
+          "paper_mark": "codex", "paper_decision": "codex",
           "archive": "storage", "restore": "storage", "backup": "storage",
           "import": "imports", "agent": "codex"}
 

@@ -31,6 +31,7 @@ from .schemas import AgentRequest, AnalysisRequest, ConfirmImport, ImportRequest
 from .limits import BodyLimit
 from .sessions import BrowserSessions
 from .schemas import MovementRequest, SecSyncRequest, ChatRequest, ConversationUpdate
+from .schemas import PaperCreateRequest, PaperUpdateRequest
 from ..services.market import bars as cached_bars, movement
 from ..services.agent_context import context_packet
 from ..adapters.analyst import CAPABILITIES
@@ -135,8 +136,9 @@ def create_app(settings=None, database=None, token=None):
 
     @app.get("/api/v1/market/tickers/{symbol}/bars")
     def market_bars(symbol: str, start_date: date | None = None, end_date: date | None = None,
+                    lookback_years: int = Query(1, ge=1, le=2),
                     principal=Depends(owner), db=Depends(db_session)):
-        return cached_bars(db,storage,current(db),principal,symbol,start_date.isoformat() if start_date else None,end_date.isoformat() if end_date else None)
+        return cached_bars(db,storage,current(db),principal,symbol,start_date.isoformat() if start_date else None,end_date.isoformat() if end_date else None,lookback_years)
 
     @app.post("/api/v1/market/movement-snapshots")
     def market_movement(request: MovementRequest, principal=Depends(owner), db=Depends(db_session)):
@@ -200,6 +202,29 @@ def create_app(settings=None, database=None, token=None):
     def rules(principal=Depends(owner), db=Depends(db_session)):
         return [view(r, "id values fingerprint") for r in db.scalars(select(Rule).where(Rule.owner_id == principal))]
 
+    @app.get('/api/v1/paper/experiments')
+    def paper_list(principal=Depends(owner), db=Depends(db_session)):
+        from ..services.paper import experiments, public_view
+        return [public_view(db,principal,row.values) for row in experiments(db,principal)]
+
+    @app.post('/api/v1/paper/experiments', status_code=201)
+    def paper_create(request: PaperCreateRequest, principal=Depends(owner), db=Depends(db_session), key: str | None = Header(None,alias='Idempotency-Key')):
+        from ..services.paper import create, public_view
+        return public_view(db,principal,create(db,principal,current(db),request,key))
+
+    @app.get('/api/v1/paper/experiments/{identity}')
+    def paper_detail(identity: str, principal=Depends(owner), db=Depends(db_session)):
+        from ..services.paper import record, public_view
+        return public_view(db,principal,record(db,principal,identity).values)
+
+    @app.patch('/api/v1/paper/experiments/{identity}')
+    def paper_update(identity: str, request: PaperUpdateRequest, principal=Depends(owner), db=Depends(db_session)):
+        from ..services.paper import record, public_view
+        row=record(db,principal,identity,True)
+        row.values={**row.values,'status':request.status}
+        event(db,principal,'paper_status_updated',data={'experiment_id':identity,'status':request.status})
+        return public_view(db,principal,row.values)
+
     @app.post("/api/v1/rules", status_code=201)
     def new_rules(values: dict, principal=Depends(owner), db=Depends(db_session)):
         try:
@@ -219,6 +244,22 @@ def create_app(settings=None, database=None, token=None):
     @app.post("/api/v1/scan-plans")
     def scan_plan(request: ScanRequest, principal=Depends(owner), db=Depends(db_session)):
         return plan(db, storage, current(db), principal, request.model_dump(mode="json"))
+
+    @app.get("/api/v1/market/history")
+    def market_history(principal=Depends(owner), db=Depends(db_session)):
+        from ..services.market_history import plan_history
+        target = plan_history(storage, current(db))
+        files = sorted(storage.path('market/raw/grouped').glob('*.json.gz'))
+        return {**{k:v for k,v in target.items() if k not in {'sessions','missing_sessions'}},
+                'missing_sessions':len(target['missing_sessions']), 'retained_sessions':len(files),
+                'oldest_retained_session':files[0].name[:10] if files else None}
+
+    @app.post("/api/v1/market/history/backfills", status_code=202)
+    def history_backfill(principal=Depends(owner), db=Depends(db_session), key: str | None = Header(None, alias="Idempotency-Key")):
+        from ..services.market_history import plan_history
+        target = plan_history(storage, current(db))
+        target = {k:v for k,v in target.items() if k not in {'missing_sessions', 'estimated_minimum_grouped_requests'}}
+        return submitted(db, principal, 'market_backfill', {'history_plan':target}, key)
 
     @app.post("/api/v1/scans", status_code=202)
     def scans(request: ScanRequest, principal=Depends(owner), db=Depends(db_session), key: str | None = Header(None, alias="Idempotency-Key")):
@@ -673,7 +714,9 @@ def create_app(settings=None, database=None, token=None):
             if request.allow_uploaded_documents:
                 for field in ["upload_ids", "import_ids"]:
                     payload[field] = list(dict.fromkeys([*payload[field], *(identity for turn in previous for identity in turn.payload.get(field, []))]))[:4]
-            context_packet(db, storage, current(db), principal, payload)
+            packet = context_packet(db, storage, current(db), principal, payload)
+            if not any(packet.get(field) for field in ('reports', 'imports', 'images', 'portfolio', 'paper_experiments')):
+                raise ServiceError('missing_chat_sources', 'Select research, a portfolio, an attachment, or start a paper experiment', 422)
             payload["conversation_meta"] = meta
             payload["conversation"] = []
             with storage.reader():

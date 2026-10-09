@@ -43,18 +43,45 @@ def fingerprints(root, sessions):
 @lru_cache(maxsize=8)
 def cached_matrix(root_name, sessions, symbols, stamps):
     root = Path(root_name)
+    available = [d for d in sessions if (root / "raw/grouped" / (d+".json.gz")).is_file()]
+    reference_first=available[0] if available else sessions[0]
     references = []
+    overlapping=[]
     for name, _, _ in stamps:
         if "/splits/" not in name:
             continue
         snapshot = read_json(name)
-        if snapshot.get("first", "9999") <= sessions[0] and snapshot.get("last", "") >= sessions[-1]:
+        if snapshot.get("first", "9999") <= reference_first and snapshot.get("last", "") >= sessions[-1]:
             references.append(snapshot)
-    if not references:
-        raise ServiceError("split_reference_unavailable", "A split reference covering the chart warmup is missing; ingest or restore it", 409)
-    reference = min(references, key=lambda s: (s["last"] != sessions[-1], s["last"]))
+        if snapshot.get('first','9999')<=sessions[-1] and snapshot.get('last','')>=reference_first:
+            overlapping.append(snapshot)
+    if references:
+        reference = min(references, key=lambda s: (s["last"] != sessions[-1], s["last"]))
+    else:
+        # A retained historical reference and new rolling daily references can
+        # jointly cover a growing archive. Require continuous dated coverage.
+        cursor=reference_first;used=[]
+        for snapshot in sorted(overlapping,key=lambda s:(s['first'],s['last'])):
+            if snapshot['first']>cursor:break
+            if snapshot['last']>=cursor:
+                used.append(snapshot)
+                cursor=(pd.Timestamp(snapshot['last'])+pd.Timedelta(days=1)).date().isoformat()
+            if cursor>sessions[-1]:break
+        if cursor<=sessions[-1]:
+            raise ServiceError("split_reference_unavailable", "Dated split references do not cover the retained chart interval; ingest or restore them", 409)
+        merged={}
+        for snapshot in used:
+            for event in snapshot['results']:
+                if not reference_first<=event.get('execution_date','9999')<=sessions[-1]:
+                    continue
+                identity=(event.get('ticker'),event.get('execution_date'))
+                old=merged.get(identity)
+                if old and (old.get('split_from')!=event.get('split_from') or old.get('split_to')!=event.get('split_to')):
+                    raise ServiceError('split_reference_conflict','Overlapping split references disagree; investigate before charting',409)
+                merged[identity]=event
+        reference={'first':reference_first,'last':max(s['last'] for s in used),'results':list(merged.values()),
+                   'retrieved_at':max((s.get('retrieved_at','') for s in used),default='')}
     reference = {**reference, "results": [r for r in reference["results"] if r.get("execution_date", "9999") <= sessions[-1]]}
-    available = [d for d in sessions if (root / "raw/grouped" / (d+".json.gz")).is_file()]
     matrix = np.full((len(symbols), len(sessions), 5), np.nan)
     errors, daily = {}, []
     if available:
@@ -126,14 +153,18 @@ def restore_ids(db, owner, sessions):
             or (a.dataset == "grouped" and a.metadata_.get("session") in sessions)][:100]
 
 
-def bars(db, storage, settings, owner, symbol, start, end):
+def bars(db, storage, settings, owner, symbol, start, end, lookback_years=1):
     if not re.fullmatch(r"[A-Z0-9][A-Z0-9.\-]{0,29}", symbol):
         raise ServiceError("invalid_symbol", "Invalid stock symbol", 422)
     end = ending(settings, end)
+    count=260
+    if lookback_years==2:
+        first=(pd.Timestamp(end)-pd.DateOffset(years=2)).date().isoformat()
+        count=len(calendar().sessions_in_range(first,end))
     with storage.reader():
-        sessions, matrix, errors, daily, retrieved, reference_end = matrix_for(storage, end, [symbol])
+        sessions, matrix, errors, daily, retrieved, reference_end = matrix_for(storage, end, [symbol],count)
     if start and (start > end or start < sessions[0]):
-        raise ServiceError("chart_range_limit", "Chart range must fit the 260-session cached window", 422)
+        raise ServiceError("chart_range_limit", "Chart range must fit the requested cached history window", 422)
     values = matrix[0]
     output, missing, sma50, sma200, pivots = [], [], [], [], []
     for i, day in enumerate(sessions):
@@ -157,6 +188,7 @@ def bars(db, storage, settings, owner, symbol, start, end):
             "split_reference_retrieved_at": retrieved, "bars": output, "missing_sessions": missing,
             "indicators": {"sma50": sma50, "sma200": sma200, "breakout55": pivots},
             "quality": "partial_coverage" if missing else "complete", "restore_artifact_ids": restore_ids(db,owner,sessions),
+            "lookback_years":lookback_years, "requested_first_session":sessions[0],
             "note": "Completed sessions; split-adjusted price movement excludes dividends. Historical references may be retrieved later."}
 
 

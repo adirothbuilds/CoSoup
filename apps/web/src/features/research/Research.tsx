@@ -75,7 +75,8 @@ export default function Research({
     portfolio?.id,
     date,
   );
-  const bars = useBars(api, selected, date);
+  const [candleRange,setCandleRange]=useState<"1M"|"3M"|"1Y"|"2Y">('1M');
+  const bars = useBars(api, selected, date, candleRange==='2Y'?2:1);
   const content = useQuery({
     queryKey: ["report", report?.id],
     queryFn: () => api.report(report!.id),
@@ -365,7 +366,7 @@ export default function Research({
                 ) : (
                   <p className="loading">Refreshing cached daily candles…</p>
                 ))}
-              {bars.data && <Candles data={bars.data} pivot={metrics?.pivot} />}
+              {bars.data && <Candles data={bars.data} pivot={metrics?.pivot} range={candleRange} onRangeChange={setCandleRange}/>}
               {metrics && (
                 <Disclosure title="Why it made the cut" open>
                   <div className="metrics">

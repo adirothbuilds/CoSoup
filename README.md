@@ -33,6 +33,7 @@ Experimental personal research for US equity swing and medium/long-term opportun
 | In the pot | What you get |
 | --- | --- |
 | Market research | Configurable breakout and near-breakout screening, daily candles, relative strength and a 3D movement view on the web. |
+| Prospective paper portfolio | An account-authenticated analyst, hypothetical cash, future-open fills and separate SPY/scanner comparisons. |
 | Portfolio context | A personal transaction journal, reviewed photo/document imports and explicitly authorized context for the research agent. |
 | Home-server operations | Durable jobs, configurable schedules, historical snapshots and retention, with optional encrypted Cloudflare R2 archiving. |
 
@@ -93,6 +94,10 @@ Steve has trusted skills for dated research charts and portfolio documents. Offl
 Ask Steve to **understand a setup**, **check financial quality**, or **follow reported holdings**. Trusted offline research tools explain numeric filter thresholds, compare ATR and volatility, inspect 21/63/126-session relative strength, and filter the approved observation list without changing saved scanner rules. New scans also include verified-history market breadth and a separate bounded filter-review list. Financial tools calculate matching-period margins, free cash flow, cash conversion and supported prior-year growth with filing dates and explicit gaps. Institutional tools inspect concentration and exact-security overlap within a common quarter. Measurements are descriptive; stale prices, incomplete coverage and incompatible reporting periods remain visible. The same tool and skill contracts can be used by future account-authenticated backend adapters.
 
 Attach PNG/JPEG screenshots, PDF statements or transaction CSVs from the chat composer. Local OCR/PDF extraction prepares evidence; images can also be shared with the connected agent through Vision. Choose the destination portfolio and explicitly permit document or portfolio sharing before sending. Steve can propose opening positions or transactions with source excerpts and unknown fields left blank. Edit and confirm the proposals in the chat before they enter the journal. The agent cannot confirm or write portfolio entries.
+
+Observe Steve over future months with an owner-activated [paper portfolio](docs/PAPER_PORTFOLIO_DESIGN.md): USD 100,000 hypothetical cash by default, bounded long-only target weights, future daily-bar execution and explicit cash/hold decisions. Home keeps its summary expandable; chat explains decisions and requests host-calculated charts. SPY and deterministic scanner books provide separate comparisons. Missing prices and research remain visible. The primary price-only series excludes dividends and fees.
+
+The optional two-calendar-year history backfill acquires only missing provider-entitled sessions and a dated split reference at the shared rate limit. Retain original raw sessions to grow the archive as daily scans append data. Research offers an explicit **2Y** cached candle view; ordinary screening keeps its established 260-session window.
 
 The account-authenticated backend adapter, shared context, skills, chart requests and portfolio-proposal contract form a provider-neutral boundary. The current implementation uses Codex; a future Claude adapter can implement the same interface with its own supported user-login flow. Claude is not connected in this release. Native session state remains private and separate from the dedicated login.
 

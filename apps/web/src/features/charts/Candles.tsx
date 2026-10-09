@@ -14,13 +14,19 @@ import { Toggle, Disclosure } from "../../components/UI";
 export default function Candles({
   data,
   pivot,
+  range: controlledRange,
+  onRangeChange,
 }: {
   data: Bars;
   pivot?: number;
+  range?: "1M" | "3M" | "1Y" | "2Y";
+  onRangeChange?: (range:"1M" | "3M" | "1Y" | "2Y")=>void;
 }) {
   const { colors, theme } = useTheme();
   const container = useRef<HTMLDivElement>(null);
-  const [range, setRange] = useState<"1M" | "3M" | "1Y">("1M");
+  const [localRange, setLocalRange] = useState<"1M" | "3M" | "1Y" | "2Y">("1M");
+  const range=controlledRange??localRange;
+  const setRange=(value:typeof range)=>{setLocalRange(value);onRangeChange?.(value);};
   const [averages, setAverages] = useState(true);
   const [readout, setReadout] = useState<Bars["bars"][number]>();
   const window = chartWindow(data, range);
@@ -122,7 +128,7 @@ export default function Candles({
     <div className="candles">
       <div className="chart-controls">
         <Toggle
-          values={["1M", "3M", "1Y"]}
+          values={["1M", "3M", "1Y", "2Y"]}
           value={range}
           onChange={setRange}
           label="Chart range"

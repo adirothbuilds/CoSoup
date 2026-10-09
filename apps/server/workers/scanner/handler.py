@@ -90,6 +90,9 @@ def scan(context, adapter=None):
 
 
 def handle(context):
+    if context.job.kind == "market_backfill":
+        from ...services.market_history import acquire
+        return acquire(context)
     if context.job.kind == "sec_sync":
         from ...services.sec_research import sync
         return sync(context)

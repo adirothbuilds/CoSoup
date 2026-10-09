@@ -1,54 +1,37 @@
-# Prospective paper portfolio: proposed implementation
+# Prospective paper portfolio
 
-Status: design proposal. No experiment, recurring agent decision or simulated transaction has been activated. This is personal research software; the feature has no broker connection or real order execution.
+CoSoup supports an owner-activated hypothetical portfolio alongside background research. It has no broker connection or real order execution. Historical backtesting is a separate problem: an accumulating price archive does not establish a dated universe or historical information availability.
 
-## Purpose
+## Starting and observing an experiment
 
-Observe how an account-authenticated analyst manages a hypothetical portfolio using CoSoup's dated research over several future months. This tests the combination of supplied information, deterministic tools, agent decisions and portfolio constraints. It does not establish that a strategy will produce similar real trading returns.
+Create an experiment through `POST /api/v1/paper/experiments`. Defaults are USD 100,000 hypothetical cash, long-only exposure, at most ten positions and at most 20% target weight per position. No borrowing is supported. Creation fixes the policy, actual start time, configured analyst/model and comparison books. An idempotency key prevents duplicate creation. Up to ten owner-scoped experiments are supported.
 
-Prospective observation is independent of a historical backtest. Existing 260-session data supports current screening; five years of prices is not necessary to begin a future observation period. Historical strategy evaluation would need a separate, dated-universe and information-availability design.
+The account-authenticated Codex manager uses its own explicitly resumed native session, approved research context and trusted offline tools. A successful current live scan is a durable dependency for each subsequent decision. Each experiment/session/stage is queued once; failed model or provider jobs are preserved without automatic repeats. An initial decision can use the latest provider-ready live report available at creation. Daily acquisition and deterministic valuation remain independent of model availability.
 
-## Daily flow
+The manager proposes `hold` or `rebalance`, target weights, reasons, cited authorized sources and research gaps. Cash is legitimate; a missing or incomplete source does not establish that no opportunities exist. The host validates unique approved symbols, finite positive weights, total exposure, count and position limits. The approved universe is the bounded supplied candidate/watchlist/filter-review set plus existing holdings; it is not the whole stock market.
 
-1. The existing scheduler acquires provider-ready daily data and completes deterministic research. A missing or blocked report becomes an experiment gap; stale data never silently substitutes for a completed update.
-2. A separate experiment task prepares approved dated reports, offline analytics, the hypothetical ledger and the experiment policy. The task records the actual observation cutoff, supplied artifact hashes and session coverage. Decisions can use only information supplied by that cutoff.
-3. The native analyst proposes target holdings or an explicit no-change decision, with evidence references and an explanation. It may use the existing chart and screening tools. The analyst cannot choose arbitrary accounting values or directly modify the ledger.
-4. A deterministic validator checks symbols, cash, position limits, price availability and the proposed changes. Accepted proposals enter a pending hypothetical execution list. Invalid or unsupported proposals remain visible without a fill.
-5. A separate calculation resolves eligible pending proposals when future price data becomes available, applies supported splits, and records immutable hypothetical fills and daily valuations. This calculation needs no model invocation.
+Decisions preserve their completion/cutoff timestamps, supplied artifact hashes, model/profile provenance and validation outcome in immutable reports and a separate private ledger. The model cannot choose fill prices, share quantities or account balances. Experiment tools cannot modify the owner's personal portfolio.
 
-Each job is keyed by experiment, session and stage. Lease recovery, duplicate schedules and conversation replay cannot create duplicate decisions or fills. Preserve a raw decision and every rejection; do not retrospectively rewrite the result.
+## Hypothetical timing and accounting
 
-## Timing and hypothetical prices
+A completed decision can first execute at a daily-bar open on a trading date strictly after its completion's New York calendar date. Future execution stays pending until that session's cached data is available. A provider daily open is not certified as the official 09:30 auction price. Prices that informed a decision cannot be used as earlier hypothetical fills.
 
-The initial price convention should be deliberately simple: a decision made on a New York calendar date can first execute at the daily open of a trading session on a strictly later date. This adds a conservative delay but prevents a daily bar's opening price from preceding the decision. Never fill at the closing price that informed the decision. Display the target session and pending status immediately; resolve its open only after its daily data is acquired.
+Deterministic accounting uses raw prices, fractional shares rounded down to eight decimal places, sells before buys, and available cash. Supported splits change shares once before valuation. Missing prices and unknown split bases create explicit blocked fills or unavailable valuations; they never become invented prices, stale substitutions or zero-value liquidations. Original decisions and gaps remain inspectable. Blocked executions are not automatically repeated.
 
-A provider's daily open is a daily-bar convention and is not certified as the official 09:30 core-session auction price. Supporting an earlier next-opening convention would require an explicit session-specific price source and proof that its timestamp follows the completed decision.
+The primary view excludes fees, dividends, cash interest and taxes. Daily snapshots calculate hypothetical equity, cash, price-only percentage change and drawdown. A separately labeled 10-basis-point notional cost sensitivity is an assumption, not a spread/slippage model. Neither series certifies real trading returns.
 
-Use raw same-session prices for hypothetical cash/share accounting. Apply known splits to shares before valuation; do not apply a split adjustment twice. Missing bars, unsupported corporate actions, delisting evidence or invalid prices suspend the affected calculation and reduce disclosed coverage. No stale-price fabricated fill or assumed zero-value liquidation is allowed.
+Two separate comparisons start with the same cash and future-open price convention: SPY buy-and-hold, and the deterministic original-candidate scanner baseline. The scanner selects equal target weights capped at the experiment's position maximum, retains cash otherwise, and is prepared independently of model success. These comparisons help distinguish market exposure, screening and analyst decisions. A short observation window and incomplete research remain interpretation limits.
 
-Initially publish price-only results with dividend treatment explicitly excluded for both portfolio and benchmark. A later dividend-aware variant needs matching dated corporate-action data and consistent benchmark accounting.
+## Interface and lifecycle
 
-## Experiment policy and measurement
+Home keeps a compact expandable paper-portfolio card with cash, valuation, decision links, holdings, gaps and comparison charts once valuations exist. Chat can inspect approved experiment analyses and request host-calculated charts, including the opening balance before the first valuation. Personal portfolio/documents still require their existing explicit sharing permissions.
 
-Proposed starter settings, subject to owner selection: USD 100,000 hypothetical cash, long-only positions, no borrowing, and explicit maximum position/count limits. Cash is an allowed outcome; the agent is not required to buy or replace a fixed number of positions. Store the policy and model/profile version with every decision. Changing the policy or analyst should create a new comparison series rather than overwrite an existing experiment.
+`GET /api/v1/paper/experiments` and `GET /api/v1/paper/experiments/{id}` return owner-scoped state. `PATCH /api/v1/paper/experiments/{id}` accepts only `status: active` or `status: paused`. Pausing prevents new manager decisions; deterministic valuation and previously accepted pending commitments continue. Starting a comparison with another policy or analyst requires a new experiment.
 
-Calculate daily hypothetical equity, cash, exposure, drawdown, turnover, and percentage change from starting equity. Show a parallel buy-and-hold SPY series starting at the same eligible hypothetical execution session, with the same price basis and cash conventions. Include a deterministic scanner-policy baseline with separately specified selection/sizing rules to distinguish an agent contribution from general market exposure.
+The existing provider-neutral analyst adapter and structured tool contracts remain reusable by a future account-authenticated backend. Codex currently uses the dedicated account login; there is no API-key fallback. Claude is not connected. The durable scheduler runs while the home deployment is awake; host sleep or Docker downtime suspends processing.
 
-The requested zero-fee view can be the primary display. Include a clearly labeled configurable cost/slippage sensitivity view, recalculated from the same immutable fills. Neither view claims real spread, liquidity, execution or tax modeling. A few months can reveal implementation problems and decision behavior; performance interpretation must disclose the short observation window and incomplete coverage.
+## Price archive
 
-## Integration and user experience
+`GET /api/v1/market/history` reports the two-calendar-year target, missing sessions and retained archive. `POST /api/v1/market/history/backfills` freezes that target in a durable missing-only acquisition job. It reuses original cached daily files, collects recent missing dates first, and obtains the matching dated split reference through the same persistent provider rate limiter. Exact provider rejection is saved and stops acquisition without retries or entitlement bypass.
 
-Add an experiment record, immutable decisions, pending proposals, hypothetical fills and valuation snapshots in private storage. Keep this ledger separate from the owner's personal portfolio and imports. The agent receives public research and the experiment ledger; sharing a personal portfolio continues to require its existing permission.
-
-Reuse the existing provider-neutral analyst adapter, native explicitly resumed conversation, trusted local tools and strict structured-output validation. Add tools to inspect an experiment, explain a decision, compare its series and prepare approved charts. Codex uses the existing dedicated account login. A future Claude adapter must preserve the same tool, ledger and timing contracts and use its supported account-authenticated runtime.
-
-The daily deterministic scan remains independent of model availability. A successful scan enqueues an eligible experiment decision through a durable dependency, rather than relying on two clocks firing in the correct order. A model failure or expired login leaves an explicit skipped decision and continues deterministic valuation. Do not automatically repeat a provider or analyst failure. Recurring analyst usage is enabled explicitly with the experiment.
-
-Keep the main interface conversational: an experiment summary/chart appears when requested, and the user can ask about performance, holdings, gaps or a particular decision. Detailed decision/fill history is expandable. Charts are rendered from host-calculated approved datasets, not invented model points.
-
-## Implementation sequence
-
-1. Build private experiment persistence, immutable hypothetical accounting and meaningful timing/idempotency fixtures.
-2. Add a strict analyst decision contract, constraints, native session isolation and owner-reviewed experiment configuration.
-3. Connect report-completion dependencies to the existing durable scheduler, and expose performance/explanation tools in chat.
-4. Start a selected experiment only after its policy, baseline, hypothetical fill convention and recurring account usage are set; verify the first complete decision-to-valuation cycle.
+Daily scans append new sessions. Retaining raw data lets the archive grow beyond the provider's current retrieval window, provided storage policy keeps those originals; old retained data is not re-requested merely because it lies outside that window. Normal screening still uses its existing 260-session analytical window. The web's explicit `2Y` candle option reads the cached archive and never initiates provider acquisition. Missing dates remain disclosed, and full historical candles do not imply complete historical fundamentals.

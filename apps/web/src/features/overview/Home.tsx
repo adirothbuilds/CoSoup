@@ -1,4 +1,5 @@
 import SteveChat from "../steve/SteveChat";
+import PaperExperiments, { HistorySummary } from "../steve/PaperExperiments";
 import ChatCharts, { ChatChart } from "../steve/ChatCharts";
 import ChatPortfolioReview, {
   PortfolioProposal,
@@ -386,8 +387,10 @@ export default function Home({
   return (
     <div className="home-page">
       <SteveChat api={api} reports={reports} />
+      <PaperExperiments api={api} />
       <details className="background-work" open={!!selected || scanOpen}>
         <summary>Reports & background jobs</summary>
+        <HistorySummary api={api} />
         <button className="research-shortcut" onClick={onResearch}>
           Explore charts, company filings & reported holdings{" "}
           <ArrowRight size={16} />

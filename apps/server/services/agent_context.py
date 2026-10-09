@@ -137,6 +137,20 @@ def context_packet(db, storage, settings, owner, request):
         packet["imports"].append({"id": row.id, "portfolio_id": row.portfolio_id, "status": row.status,
                                   "proposal": row.proposal})
         packet["source_ids"].append(row.id)
+    if request['task_type']=='research_chat' and request.get('include_paper_experiments',True):
+        from .paper import experiments, overview
+        packet['paper_experiments']=[]
+        for row in experiments(db,owner)[:3]:
+            state=row.values
+            dates=[state['created_at'][:10],*(d['completed_at'][:10] for d in state['decisions']),
+                   *(s['session'] for s in state['snapshots'])]
+            if any(d>end for d in dates):
+                packet.setdefault('tool_gaps',[]).append({'source_id':state['id'],'code':'paper_state_after_context_cutoff'})
+                continue
+            value=overview(state)
+            for ledger in value['books'].values():ledger.pop('fills',None)
+            packet['paper_experiments'].append(value)
+            packet['source_ids'].append(state['id'])
     if len(json.dumps(packet).encode()) > settings.limits.agent_reservation_bytes//2:
         raise ServiceError("agent_input_limit", "Context exceeds the configured agent input budget", 413)
     return packet

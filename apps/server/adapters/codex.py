@@ -26,6 +26,12 @@ CHAT_SCHEMA = {**RESULT_SCHEMA, "required": ["markdown", "sources", "gaps", "cha
                     "properties":{**{k:{"type":["string","null"]} for k in ["symbol","quantity","price","amount","at","fees","currency","source_text"]},
                                   "type":{"type":"string","enum":["buy","sell","opening","deposit","withdrawal","dividend","fee","split"]}}}}}}}}}
 
+PAPER_SCHEMA = {**RESULT_SCHEMA, 'required':['markdown','sources','gaps','decision','target_weights'],
+    'properties':{**RESULT_SCHEMA['properties'], 'decision':{'type':'string','enum':['hold','rebalance']},
+        'target_weights':{'type':'array','maxItems':10,'items':{'type':'object','additionalProperties':False,
+            'required':['symbol','weight','reason'],'properties':{'symbol':{'type':'string'},
+                'weight':{'type':'string'},'reason':{'type':'string','maxLength':2000}}}}}}
+
 # These CLI overrides are trusted policy, never supplied by task input. The
 # legacy workspace-write preset allows credential reads and temporary writes.
 TOOL_POLICY = [
@@ -115,7 +121,7 @@ class CodexCLI:
                 if not isinstance(session_id,str) or not re.fullmatch(r"[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}",session_id):
                     raise ServiceError("invalid_session", "Saved native session reference is invalid")
         command = self.command(workspace, session_home, session_id)
-        schema = CHAT_SCHEMA if request["task_type"] == "research_chat" else RESULT_SCHEMA
+        schema = CHAT_SCHEMA if request["task_type"] == "research_chat" else PAPER_SCHEMA if request["task_type"] == "paper_portfolio" else RESULT_SCHEMA
         (workspace/"schema.json").write_text(json.dumps(schema))
         # Credentials/config/database variables from the wrapper never reach the CLI.
         env = {"PATH": "/usr/local/bin:/usr/bin:/bin", "LANG": "C.UTF-8"}

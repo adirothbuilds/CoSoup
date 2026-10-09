@@ -57,6 +57,7 @@ class Settings(BaseModel):
     lease_seconds: int = Field(120, ge=10)
     max_job_attempts: int = Field(3, ge=1, le=10)
     settlement_minutes: int = Field(30, ge=0)
+    market_data_ready_time: str | None = Field("01:00", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
     archive_cron: str = "0 2 1 * *"
     backup_cron: str = "0 3 * * *"
     archive_after_days: int = Field(31, ge=1)

@@ -34,8 +34,8 @@ def tick(database, settings, at=None):
                     payload.setdefault("mode", "live")
                     payload.setdefault("research", "current")
                     if row.missed_policy == "catch_up" and lateness > 86400:
-                        payload.update(mode="historical_snapshot", start_date=expected_session(scheduled, settings.settlement_minutes),
-                                       end_date=expected_session(at, settings.settlement_minutes), research="as_of_only")
+                        payload.update(mode="historical_snapshot", start_date=expected_session(scheduled, settings.settlement_minutes, settings.market_data_ready_time),
+                                       end_date=expected_session(at, settings.settlement_minutes, settings.market_data_ready_time), research="as_of_only")
                 job = enqueue(db, row.owner_id, kind, payload, key=f"schedule:{row.id}:{scheduled.isoformat()}")
                 job_id = job.id
             else:

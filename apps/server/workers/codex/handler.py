@@ -3,7 +3,7 @@ import io
 import shutil
 from pathlib import Path
 
-from ...adapters.codex import CodexCLI
+from ...adapters.analyst import backend
 from ...errors import ServiceError
 from ...persistence.models import Artifact
 from ...services.jobs import owned
@@ -30,7 +30,7 @@ def handle(context, analyst=None):
             from PIL import Image
             inputs = context_packet(db, storage, context.settings, owner, request)
             end = inputs["end_date"]
-            if not inputs["reports"] and request["task_type"] not in {"portfolio_review", "document_review"}:
+            if not inputs["reports"] and not inputs["imports"] and not inputs["images"] and not inputs["portfolio"] and request["task_type"] not in {"portfolio_review", "document_review"}:
                 raise ServiceError("missing_reports", "No authorized reports exist for the requested period; scan or restore first")
             image_bytes = 0
             for i, image in enumerate(inputs["images"]):
@@ -42,7 +42,8 @@ def handle(context, analyst=None):
                             if original.width*original.height > context.settings.limits.image_pixels:
                                 raise ServiceError("image_pixel_limit", "Image exceeds the configured pixel budget", 413)
                             original.load()
-                            destination = workspace/f"vision-{i}.png"
+                            name = image["id"] if request["task_type"] == "research_chat" else str(i)
+                            destination = workspace/f"vision-{name}.png"
                             encoded = io.BytesIO()
                             original.convert("RGB").save(encoded, format="PNG")
                             image_bytes += encoded.tell()
@@ -53,20 +54,38 @@ def handle(context, analyst=None):
                     except (OSError, ValueError, Image.DecompressionBombError):
                         raise ServiceError("invalid_vision_image", "Image could not be safely decoded", 422) from None
                 image["workspace_file"] = destination.name
+        if request["task_type"] == "research_chat":
+            from ...services.research_analysis import prepare
+            prepare(inputs, storage, context.settings)
+            inputs["conversation"] = request.get("conversation", [])
+            shutil.copyfile(Path(__file__).resolve().parents[2]/"services/research_tools.py", workspace/"research_tools.py")
+            shutil.copyfile(Path(__file__).resolve().parents[2]/"profiles/research-tools.json", workspace/"research-tools.json")
+            skills = Path(__file__).resolve().parents[2]/"profiles/skills"
+            shutil.copytree(skills, workspace/".agents/skills")
+            import hashlib
+            owner_ref = hashlib.sha256(owner.encode()).hexdigest()[:32]
+            request = {**request, "_native_session_home":str(storage.path(f"agent-sessions/{owner_ref}/{request['conversation_id']}"))}
         body = json.dumps(inputs)
         if len(body.encode()) > context.settings.limits.agent_reservation_bytes//2:
             raise ServiceError("agent_input_limit", "Approved inputs exceed the configured agent workspace budget")
         (workspace/"inputs.json").write_text(body)
         trusted = Path(__file__).resolve().parents[2]/"profiles/research-analyst.md"
         (workspace/"AGENTS.md").write_text(trusted.read_text())
-        result = (analyst or CodexCLI(context.settings)).analyze(workspace, request, context.checkpoint)
+        result = (analyst or backend(context.settings)).analyze(workspace, request, context.checkpoint)
+        session = result.pop("_session", None)
         allowed = set(inputs["source_ids"])
         if set(result["sources"])-allowed:
             raise ServiceError("agent_unapproved_source", "Agent result cites sources outside its authorized inputs")
+        if request["task_type"] == "research_chat":
+            from ...services.research_tools import render
+            from ...services.chat_output import proposals
+            result["charts"] = render(result.pop("chart_requests", []), inputs["chart_datasets"])
+            result["portfolio_proposals"] = proposals(result.get("portfolio_proposals", []), inputs["imports"])
         result.update(status="complete" if not result["gaps"] else "partial_coverage", data_date=end,
                       provenance={"job_id": context.job.id, "source_ids": inputs["source_ids"], "profile_id": "research-analyst",
                                   "portfolio_export_authorized": bool(request.get("allow_portfolio_data")),
-                                  "document_export_authorized": bool(request.get("allow_uploaded_documents"))})
+                                  "document_export_authorized": bool(request.get("allow_uploaded_documents")),
+                                  "session":session})
         return publish(context, end, "agent", result, result["markdown"])
     finally:
         shutil.rmtree(workspace, ignore_errors=True)

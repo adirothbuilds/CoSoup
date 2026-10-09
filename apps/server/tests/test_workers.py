@@ -134,6 +134,39 @@ class AgentWorkerTests(ServerCase):
         execute_one('codex',lambda c: handle(c,FakeAnalyst()),self.database,self.settings)
         self.assertEqual(self.job(identity).error['code'],'portfolio_export_denied')
 
+    def test_unapproved_analysis_source_fails_visibly_and_removes_scratch(self):
+        from apps.server.workers.codex.handler import handle
+        class UnapprovedAnalyst(FakeAnalyst):
+            def analyze(adapter,workspace,request,checkpoint):
+                result=super().analyze(workspace,request,checkpoint)
+                result['sources']=['unauthorized-source']
+                return result
+        report=self.report()
+        request=AgentRequest(task_type='daily_review',prompt='Review.',report_ids=[report]).model_dump(mode='json')
+        identity=self.post_job('agent',request)
+        execute_one('codex',lambda c:handle(c,UnapprovedAnalyst()),self.database,self.settings)
+        self.assertEqual(self.job(identity).status,'failed')
+        self.assertEqual(self.job(identity).error['code'],'agent_unapproved_source')
+        self.assertFalse(list(self.storage.path('job-workspaces').glob(identity+'-*')))
+        self.assertEqual(self.client.get('/api/v1/reports',params={'job_id':identity}).json(),[])
+
+    def test_running_analysis_cancellation_is_visible_and_removes_scratch(self):
+        from apps.server.workers.codex.handler import handle
+        class CancelledAnalyst(FakeAnalyst):
+            def analyze(adapter,workspace,request,checkpoint):
+                self.assertTrue((workspace/'inputs.json').exists())
+                with self.database.session() as db:
+                    db.get(Job,identity).cancel_requested=True
+                checkpoint(stage='agent_running')
+                self.fail('Cancellation must stop analysis')
+        report=self.report()
+        request=AgentRequest(task_type='daily_review',prompt='Review.',report_ids=[report]).model_dump(mode='json')
+        identity=self.post_job('agent',request)
+        execute_one('codex',lambda c:handle(c,CancelledAnalyst()),self.database,self.settings)
+        self.assertEqual(self.job(identity).status,'cancelled')
+        self.assertFalse(list(self.storage.path('job-workspaces').glob(identity+'-*')))
+        self.assertEqual(self.client.get('/api/v1/reports',params={'job_id':identity}).json(),[])
+
     def test_vision_normalizes_authorized_image_and_removes_task_scratch(self):
         from PIL import Image
         from apps.server.workers.codex.handler import handle
@@ -159,12 +192,24 @@ class AgentWorkerTests(ServerCase):
     def test_vision_cli_uses_only_normalized_task_paths(self):
         from apps.server.adapters.codex import CodexCLI
         workspace=self.root/'task';workspace.mkdir();(workspace/'vision-0.png').write_bytes(b'fixture')
-        profile=self.root/'profile';profile.mkdir()
-        settings=self.settings.model_copy(update={'codex_enabled':True,'codex_sandbox_verified':True,'codex_profile_dir':profile})
+        profile=self.root/'profile';profile.mkdir();(profile/'auth.json').write_text('{}')
+        settings=self.settings.model_copy(update={'codex_enabled':True,'codex_sandbox_verified':True,'codex_profile_dir':profile,'codex_model':'gpt-6.1-sol'})
         with patch('shutil.which',return_value='/usr/bin/bwrap'):
             command=CodexCLI(settings).command(workspace)
         i=command.index('--image');self.assertEqual(command[i+1],'/work/vision-0.png')
         self.assertNotIn('--dangerously-bypass-approvals-and-sandbox',command)
+        self.assertIn('default_permissions="steve"',command)
+        policy=next(value for value in command if value.startswith('permissions.steve.filesystem='))
+        self.assertIn('"/home/agent/.codex/auth.json"="deny"',policy)
+        self.assertIn('"/proc"="deny"',policy)
+        self.assertIn('"/work"="write"',policy)
+        self.assertIn('permissions.steve.network.enabled=false',command)
+        self.assertIn('approval_policy="never"',command)
+        self.assertIn('model_reasoning_effort="medium"',command)
+        self.assertEqual(command[command.index('--model')+1],'gpt-6.1-sol')
+        self.assertNotIn('--sandbox',command)
+        self.assertNotIn(str(profile),command)
+        self.assertIn(str(profile/'auth.json'),command)
 
 
 class ExtractionTests(ServerCase):

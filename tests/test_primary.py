@@ -1,14 +1,20 @@
 import io
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from stock_scanner.primary import sec_company_facts, sec_metrics
 from stock_scanner.storage import atomic_json
 
 
 class PrimaryTests(unittest.TestCase):
+    def setUp(self):
+        env = patch.dict(os.environ, {'SEC_USER_AGENT': 'CoSoup tests contact@example.test'})
+        env.start(); self.addCleanup(env.stop)
+
     def test_no_massive_authorization_is_sent_to_sec(self):
         with tempfile.TemporaryDirectory() as d:
             requests=[]
@@ -17,6 +23,7 @@ class PrimaryTests(unittest.TestCase):
                 return io.BytesIO(b'{"cik":7536,"facts":{}}')
             result=sec_company_facts(Path(d),'0000007536','2026-10-02',opener=opener)
             self.assertFalse(result.get('error'));self.assertFalse(requests[0].has_header('Authorization'))
+            self.assertEqual(requests[0].get_header('User-agent'), 'CoSoup tests contact@example.test')
             again=sec_company_facts(Path(d),'0000007536','2026-10-02',opener=opener)
             self.assertEqual(len(requests),1)
 

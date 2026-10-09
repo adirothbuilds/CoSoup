@@ -1839,3 +1839,895 @@ summary:focus-visible {
     padding-bottom: 16px;
   }
 }
+
+/* Steve's research desk: evidence next to the conversation. */
+.steve-sources .kitchen-scene {
+  width: 160px;
+  max-width: 100%;
+  margin: 0 auto 15px;
+}
+.steve-sources .kitchen-stage {
+  height: 160px;
+}
+.steve-sources .kitchen-scene figcaption,
+.steve-sources .kitchen-sticker {
+  display: none;
+}
+.chart-skeleton {
+  height: 400px;
+  margin: 20px;
+  border-radius: 12px;
+  background: var(--raised);
+  display: grid;
+  place-items: center;
+  position: relative;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+}
+.chart-skeleton span {
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0 69px,
+      var(--border) 70px 71px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 89px,
+      var(--border) 90px 91px
+    );
+  opacity: 0.4;
+}
+.chart-skeleton p {
+  z-index: 1;
+  background: var(--panel);
+  padding: 12px;
+  border-radius: 8px;
+}
+.steve-workspace {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  overflow: hidden;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  min-height: 620px;
+}
+.steve-sources {
+  background: var(--raised);
+  padding: 22px 18px;
+  min-width: 0;
+  border-right: 1px solid var(--border);
+}
+.steve-identity {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 23px;
+}
+.steve-identity img {
+  width: 46px;
+  height: 46px;
+  object-fit: cover;
+  object-position: top;
+  border-radius: 50%;
+  background: var(--panel);
+}
+.steve-identity div {
+  display: grid;
+  gap: 4px;
+  flex: 1;
+}
+.steve-identity strong {
+  font-family: Georgia, serif;
+  font-size: 24px;
+}
+.steve-identity small {
+  font-size: 10px;
+  color: var(--muted);
+}
+.connection-dot {
+  width: 7px;
+  height: 7px;
+  background: var(--warning);
+  border-radius: 50%;
+}
+.connection-dot.ready {
+  background: var(--positive);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+.new-chat {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  background: var(--panel);
+}
+.steve-sources h3 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-top: 28px;
+}
+.source-list {
+  display: grid;
+  gap: 8px;
+  max-height: 245px;
+  overflow: auto;
+}
+.source-card {
+  display: flex !important;
+  flex-direction: row;
+  gap: 9px;
+  align-items: center;
+  padding: 12px 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  cursor: pointer;
+}
+.source-card input {
+  width: 14px !important;
+  flex: none;
+}
+.source-card svg {
+  color: var(--accent);
+  flex: none;
+}
+.source-card span {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+.source-card strong {
+  font-size: 11px;
+}
+.source-card small {
+  font-size: 10px;
+  color: var(--muted);
+}
+.source-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  margin-top: 15px;
+}
+.conversation-list {
+  display: grid;
+  gap: 4px;
+  max-height: 180px;
+  overflow: auto;
+}
+.conversation-list button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  border: 0;
+  font-size: 11px;
+  background: transparent;
+  min-height: 36px;
+  padding: 8px;
+}
+.conversation-list span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.conversation-list .selected {
+  background: var(--accent-soft);
+}
+.steve-chat {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.chat-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  border-bottom: 1px solid var(--border);
+  padding: 18px 28px;
+}
+.chat-head div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.chat-head svg {
+  color: var(--accent);
+}
+.chat-body {
+  padding: 24px 32px;
+  flex: 1;
+  max-height: 700px;
+  overflow: auto;
+  scroll-behavior: smooth;
+}
+.chat-welcome {
+  padding: 32px 0 24px;
+}
+.steve-signature {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--accent);
+  font-weight: 600;
+}
+.chat-welcome h2 {
+  font-family: Georgia, serif;
+  font-size: clamp(34px, 3.2vw, 51px);
+  line-height: 1.12;
+  font-weight: 400;
+  letter-spacing: -1.5px;
+  margin: 24px 0 18px;
+}
+.chat-welcome h2 em {
+  color: var(--accent);
+}
+.chat-welcome > p {
+  line-height: 1.8;
+  font-size: 13px;
+  color: var(--muted);
+}
+.question-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 30px;
+}
+.question-cards button {
+  position: relative;
+  text-align: left;
+  min-height: 115px;
+  background: var(--raised);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 15px;
+}
+.question-cards button > span {
+  font-size: 10px;
+  color: var(--muted);
+}
+.question-cards strong {
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 500;
+}
+.question-cards svg {
+  position: absolute;
+  right: 12px;
+  top: 13px;
+  color: var(--accent);
+  transform: rotate(45deg);
+}
+.chat-composer {
+  padding: 0 28px 20px;
+}
+.chat-composer form {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 13px;
+  background: var(--raised);
+  transition: border-color 0.15s;
+}
+.chat-composer form:focus-within {
+  border-color: var(--accent);
+}
+.chat-composer textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 65px;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 4px !important;
+  font-size: 13px;
+  outline: 0;
+}
+.composer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.composer-actions span {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  font-size: 10px;
+  color: var(--muted);
+}
+.composer-actions button {
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 8px;
+  display: grid;
+  place-items: center;
+}
+.composer-note {
+  font-size: 10px !important;
+  line-height: 1.6;
+  color: var(--muted);
+  margin-bottom: 0;
+}
+.chat-turn {
+  margin-bottom: 30px;
+}
+.chat-question {
+  margin-left: 15%;
+  padding: 15px 20px;
+  border-radius: 16px 16px 3px 16px;
+  background: var(--accent-soft);
+}
+.chat-question > span {
+  font-size: 10px;
+  color: var(--muted);
+}
+.chat-question p {
+  margin: 7px 0 0;
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.chat-answer {
+  margin-top: 24px;
+}
+.answer-byline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+.answer-byline svg {
+  color: var(--accent);
+}
+.answer-byline small {
+  color: var(--muted);
+  font-size: 10px;
+  margin-left: auto;
+}
+.answer-sources {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin: 18px 0;
+}
+.answer-sources a {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  background: var(--raised);
+  padding: 7px 9px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+}
+.thinking {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 20px 0;
+  flex-wrap: wrap;
+}
+.thinking > span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: steve-think 1.4s infinite;
+}
+.thinking > span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.thinking > span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+.thinking p {
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: 8px;
+}
+@keyframes steve-think {
+  50% {
+    opacity: 0.25;
+    transform: translateY(-3px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .thinking > span {
+    animation: none;
+  }
+  .chat-body {
+    scroll-behavior: auto;
+  }
+}
+.research-shortcut {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin: 18px 0;
+  background: transparent;
+  border: 0;
+  font-size: 12px;
+  color: var(--accent);
+}
+.readable-report {
+  line-height: 1.8;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+  max-width: 900px;
+}
+.readable-report h3 {
+  font-family: Georgia, serif;
+  font-size: 23px;
+  line-height: 1.4;
+  margin: 28px 0 12px;
+  font-weight: 400;
+}
+.readable-report ul {
+  padding-left: 20px;
+}
+.readable-report li {
+  margin: 8px 0;
+}
+.readable-report code {
+  background: var(--raised);
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 11px;
+}
+.table-scroll {
+  overflow: auto;
+  max-width: 100%;
+}
+.table-scroll table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  text-align: left;
+}
+.table-scroll th,
+.table-scroll td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.table-scroll th {
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.sec-sync-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 15px;
+  align-items: start;
+  margin: 22px 0;
+}
+.sec-sync-form label {
+  font-size: 12px;
+}
+.sec-sync-form small {
+  color: var(--muted);
+  font-size: 10px;
+}
+.sec-sync-form button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 20px;
+}
+.source-context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 24px 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+.source-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.source-tabs button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.sec-report h3 {
+  font-family: Georgia, serif;
+  font-size: 25px;
+  font-weight: 400;
+}
+.sec-report h3 small {
+  font-family: inherit;
+  color: var(--muted);
+  font-size: 14px;
+}
+.financial-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 20px 0;
+}
+.financial-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  gap: 8px;
+  min-width: 0;
+}
+.financial-card > span {
+  font-size: 11px;
+  color: var(--muted);
+}
+.financial-card strong {
+  font-size: 20px;
+  letter-spacing: -0.6px;
+}
+.financial-card small,
+.financial-card a {
+  font-size: 10px;
+  line-height: 1.5;
+}
+.financial-trend {
+  height: 70px;
+  display: flex;
+  gap: 7px;
+  align-items: end;
+  margin: 10px 0 22px;
+}
+.financial-trend > div {
+  position: relative;
+  height: 100%;
+  flex: 1;
+  display: flex;
+  align-items: end;
+}
+.financial-trend span {
+  width: 100%;
+  background: var(--accent);
+  opacity: 0.7;
+  border-radius: 3px 3px 0 0;
+}
+.financial-trend span.negative {
+  background: var(--negative);
+}
+.financial-trend small {
+  position: absolute;
+  bottom: -19px;
+  font-size: 8px;
+  white-space: nowrap;
+}
+.filing-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.filing-grid > a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  padding: 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  background: var(--raised);
+}
+.filing-grid span {
+  color: var(--muted);
+  font-size: 10px;
+}
+.document-excerpt {
+  max-height: 360px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: 12px;
+  line-height: 1.8;
+  padding: 20px;
+  background: var(--raised);
+  border-radius: 10px;
+}
+.ownership-heading {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-top: 36px;
+}
+.ownership-heading h3 {
+  margin: 0;
+}
+.ownership-heading p {
+  font-size: 11px;
+  color: var(--muted);
+}
+.ownership-heading > svg {
+  color: var(--accent);
+}
+.manager-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.manager-card {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 22px;
+  min-width: 0;
+}
+.manager-card h4 {
+  font-size: 14px;
+  margin: 0 0 8px;
+}
+.manager-card p,
+.manager-card small {
+  font-size: 11px;
+  line-height: 1.6;
+}
+.holdings-bars {
+  display: grid;
+  gap: 15px;
+  margin: 24px 0;
+}
+.holdings-bars > div > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 10px;
+  margin-bottom: 6px;
+}
+.holding-track {
+  display: block;
+  height: 5px;
+  background: var(--raised);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.holding-track > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 5px;
+}
+.sec-empty {
+  padding: 36px;
+  text-align: center;
+  color: var(--muted);
+}
+.sec-empty svg {
+  color: var(--accent);
+}
+.sec-empty p {
+  font-family: Georgia, serif;
+  font-size: 24px;
+}
+.sec-empty small {
+  font-size: 12px;
+}
+@media (max-width: 1100px) {
+  .steve-workspace {
+    grid-template-columns: 210px minmax(0, 1fr);
+  }
+  .chat-body {
+    padding: 22px;
+  }
+  .question-cards {
+    grid-template-columns: 1fr;
+  }
+  .question-cards button {
+    min-height: 64px;
+    padding-right: 35px;
+    gap: 5px;
+  }
+  .financial-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 700px) {
+  .steve-workspace {
+    grid-template-columns: 1fr;
+    border-radius: 17px;
+    min-height: 0;
+  }
+  .steve-sources {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    padding: 16px;
+  }
+  .steve-identity {
+    margin-bottom: 12px;
+  }
+  .steve-sources .kitchen-scene {
+    height: 80px;
+    min-height: 80px;
+  }
+  .steve-sources .kitchen-stage {
+    height: 80px;
+  }
+  .steve-sources h3 {
+    margin-top: 18px;
+  }
+  .source-list {
+    max-height: 155px;
+    grid-template-columns: 1fr 1fr;
+  }
+  .source-card {
+    gap: 6px;
+  }
+  .source-card > svg {
+    display: none;
+  }
+  .source-card strong {
+    font-size: 10px;
+  }
+  .conversation-list {
+    max-height: 100px;
+  }
+  .steve-sources .new-chat {
+    min-height: 36px;
+    padding: 7px;
+  }
+  .chat-head {
+    padding: 16px;
+  }
+  .chat-body {
+    padding: 18px;
+    max-height: 620px;
+  }
+  .chat-welcome {
+    padding-top: 14px;
+  }
+  .chat-welcome h2 {
+    font-size: 37px;
+  }
+  .chat-composer {
+    padding: 0 16px 16px;
+  }
+  .chat-question {
+    margin-left: 7%;
+  }
+  .question-cards {
+    margin-top: 22px;
+    gap: 7px;
+  }
+  .sec-sync-form {
+    grid-template-columns: 1fr;
+  }
+  .sec-sync-form button {
+    margin-top: 0;
+    justify-content: center;
+  }
+  .financial-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .financial-card {
+    padding: 12px;
+  }
+  .financial-card strong {
+    font-size: 17px;
+  }
+  .manager-grid {
+    grid-template-columns: 1fr;
+  }
+  .manager-card {
+    padding: 16px;
+  }
+  .financial-trend {
+    gap: 4px;
+  }
+  .financial-trend small {
+    font-size: 7px;
+  }
+  .source-context {
+    line-height: 1.7;
+  }
+}
+
+/* The conversation is primary; research sources and operations open on demand. */
+.steve-workspace { grid-template-columns: 1fr; max-width: 950px; margin: 0 auto; min-height: 0; overflow: visible; }
+.steve-sources { display:flex; align-items:center; gap:14px; padding:16px 24px; border-right:0; border-bottom:1px solid var(--border); border-radius:22px 22px 0 0; position:relative; }
+.steve-identity { margin:0; flex:1; }
+.steve-identity img { width:40px; height:40px; }
+.steve-identity strong { font-size:23px; }
+.steve-sources .new-chat { width:auto; min-height:40px; padding:8px 12px; margin:0; }
+.chat-context > summary { cursor:pointer; font-size:12px; padding:12px 0; }
+.chat-context-body { position:absolute; right:16px; top:75px; width:320px; max-width:calc(100% - 32px); max-height:65vh; overflow:auto; z-index:8; background:var(--panel); border:1px solid var(--border); box-shadow:0 12px 30px #0002; border-radius:14px; padding:18px; }
+.chat-context .source-card { flex-direction:row; }
+.chat-head { gap:8px; padding:12px 24px; }
+.chat-head > div:first-child { min-width:0; flex:1; }
+.chat-head > div:first-child span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:12px; }
+.conversation-actions { display:flex; gap:4px; }
+.conversation-actions button { border:0; min-height:36px; padding:8px; background:transparent; }
+.chat-welcome { padding:24px 0 12px; max-width:650px; }
+.chat-welcome h2 { font-size:42px; margin:18px 0; line-height:1.13; }
+.chat-welcome p { font-size:14px; }
+.question-cards { margin-top:22px; grid-template-columns:repeat(3,minmax(0,1fr)); }
+.question-cards button { min-height:64px; padding:12px; }
+.question-cards button > span, .question-cards button > svg { display:none; }
+.question-cards strong { font-size:12px; }
+.chat-body { min-height:260px; max-height:66vh; overflow-y:auto; }
+.chat-composer { padding:16px 24px 20px; }
+.chat-sharing { display:flex; flex-wrap:wrap; gap:12px; margin-bottom:8px; font-size:12px; }
+.chat-sharing .check { display:flex; flex-direction:row; align-items:center; gap:8px; }
+.chat-sharing select { width:auto; max-width:200px; padding:5px; }
+.attach-button { background:transparent; border:0; padding:8px; min-height:40px; }
+.composer-note { font-size:10px; line-height:1.5; margin-bottom:0; }
+.background-work { max-width:950px; margin:22px auto; padding:16px; border-top:1px solid var(--border); }
+.background-work > summary { cursor:pointer; font-size:13px; color:var(--muted); }
+.chat-document-picker { background:var(--raised); padding:16px; border-radius:12px; margin-bottom:12px; }
+.attachment-chip { display:flex; justify-content:space-between; align-items:center; font-size:12px; }
+.attachment-chip span { min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.attachment-chip button { background:transparent; border:0; }
+.rename-conversation { padding:12px 24px; }
+.chat-chart { margin:18px 0; border:1px solid var(--border); border-radius:14px; padding:16px; background:var(--panel); }
+.chat-chart figcaption { display:flex; justify-content:space-between; gap:12px; font-size:14px; }
+.chat-chart figcaption small { color:var(--muted); }
+.chat-chart svg { width:100%; display:block; color:var(--accent); }
+.chat-chart svg text { fill:var(--muted); font-size:10px; }
+.plot-grid { stroke:var(--border); }
+.plot-line { stroke:var(--accent); stroke-width:2; }
+.plot-point { fill:transparent; cursor:pointer; }
+.plot-point:hover { fill:var(--accent); }
+.chart-readout { display:flex; justify-content:space-between; font-size:11px; margin:14px 0; color:var(--muted); }
+.chat-bar-chart { display:grid; gap:12px; margin:18px 0; }
+.chat-bar-chart > div { display:grid; grid-template-columns:minmax(70px,1fr) 2fr 60px; align-items:center; gap:10px; font-size:11px; }
+.plot-bar-track { height:8px; background:var(--raised); border-radius:6px; overflow:hidden; }
+.plot-bar-track > div { height:100%; background:var(--accent); border-radius:6px; }
+.plot-bar-track > div.negative { background:var(--warning); }
+.chat-portfolio-review { margin:18px 0; padding:16px; border:1px solid var(--border); border-radius:14px; }
+.proposal-entry { border:1px solid var(--border); padding:12px; border-radius:10px; margin:12px 0; min-width:0; }
+.proposal-entry legend { font-size:12px; color:var(--muted); }
+.proposal-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.proposal-fields label { font-size:11px; }
+.proposal-fields input,.proposal-fields select { min-width:0; width:100%; }
+@media(max-width:700px) {
+ .steve-sources { padding:12px; gap:8px; flex-wrap:wrap; border-radius:17px 17px 0 0; }
+ .steve-identity { min-width:135px; }
+ .steve-identity small { font-size:9px; }
+ .steve-sources .new-chat { font-size:10px; padding:6px 8px; }
+ .chat-context { margin-left:auto; }
+ .chat-context > summary { padding:4px 0; font-size:10px; }
+ .chat-context-body { top:110px; }
+ .chat-head { padding:10px 12px; }
+ .chat-head > .small { display:none; }
+ .chat-body { padding:16px; max-height:62vh; min-height:200px; }
+ .chat-welcome h2 { font-size:30px; }
+ .question-cards { grid-template-columns:1fr; gap:6px; }
+ .question-cards button { min-height:42px; }
+ .chat-composer { padding:12px; }
+ .chat-question { margin-left:0; }
+ .proposal-fields { grid-template-columns:1fr; }
+}
+.source-reference { display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--muted); padding:7px 10px; border:1px solid var(--border); border-radius:8px; }
+.steve-workspace { display:block; }
+.steve-chat { height:calc(100dvh - 265px); min-height:460px; max-height:850px; }
+.chat-head,.chat-composer { flex:none; }
+.chat-body { flex:1; min-height:150px; max-height:none; }
+@media(max-width:700px) {
+ .steve-chat { height:calc(100dvh - 325px); min-height:380px; }
+ .chat-body { min-height:120px; max-height:none; }
+}

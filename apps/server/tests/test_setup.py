@@ -46,6 +46,7 @@ class SetupConfigurationTests(unittest.TestCase):
                 prepare(self.root, "dev", str(self.root), 501, 20, architecture)
                 compose = parse_env((self.root / "compose.env").read_text())
                 self.assertEqual(compose["COSOUP_CODEX_PLATFORM"], expected)
+                self.assertEqual(compose["COSOUP_SERVER_PLATFORM"], expected)
                 config = json.loads((self.root / "config/server.json").read_text())
                 self.assertFalse(config["codex_enabled"])
                 self.assertFalse(config["codex_sandbox_verified"])
@@ -71,6 +72,32 @@ class SetupConfigurationTests(unittest.TestCase):
         self.assertEqual((self.root / "secrets/massive_api_key").read_text(), literal)
         config = json.loads((self.root / "config/server.json").read_text())
         self.assertEqual(config["limits"]["capacity_bytes"], 20000000000)
+
+    def test_sec_identity_is_private_and_preserves_all_other_credentials(self):
+        self.prepare()
+        before={p.name:p.read_bytes() for p in (self.root/'secrets').iterdir() if p.name!='sec_user_agent'}
+        contact='CoSoup research contact@example.test'
+        self.edit(SEC_USER_AGENT=contact)
+        self.prepare()
+        self.assertEqual((self.root/'secrets/sec_user_agent').read_text(),contact)
+
+        self.assertEqual((self.root/'secrets/sec_user_agent').stat().st_mode & 0o777,0o600)
+        self.assertEqual(before,{p.name:p.read_bytes() for p in (self.root/'secrets').iterdir() if p.name!='sec_user_agent'})
+        self.assertNotIn(contact,(self.root/'compose.env').read_text())
+        self.assertNotIn(contact,(self.root/'config/server.json').read_text())
+        self.edit(SEC_USER_AGENT='CoSoup private-invalid-contact')
+        with self.assertRaises(SetupError) as caught:self.prepare()
+        self.assertNotIn('private-invalid-contact',str(caught.exception))
+        self.assertEqual((self.root/'secrets/sec_user_agent').read_text(),contact)
+
+    def test_manual_initialization_creates_contact_mount_without_replacing_identity(self):
+        from apps.server.__main__ import initialize
+        initialize(self.root,'UTC')
+        path=self.root/'secrets/sec_user_agent'
+        self.assertEqual(path.read_bytes(),b'')
+        path.write_text('CoSoup manual contact@example.test')
+        initialize(self.root,'UTC')
+        self.assertEqual(path.read_text(),'CoSoup manual contact@example.test')
 
     def test_prod_prepares_env_then_requires_trusted_https(self):
         with self.assertRaisesRegex(SetupError, "BROWSER_ORIGIN"):

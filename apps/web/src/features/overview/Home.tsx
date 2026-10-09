@@ -1,6 +1,12 @@
-import { KitchenScene } from "../../components/Kitchen";
+import SteveChat from "../steve/SteveChat";
+import ChatCharts, { ChatChart } from "../steve/ChatCharts";
+import ChatPortfolioReview, {
+  PortfolioProposal,
+} from "../steve/ChatPortfolioReview";
+import Markdown from "../../components/Markdown";
+import { SecReportView, SecReport } from "../research/SecResearch";
 import { ArrowRight, UtensilsCrossed } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   ApiClient,
@@ -176,10 +182,19 @@ export function ScanForm({ api }: { api: ApiClient }) {
     </div>
   );
 }
-function ReportView({ api, report }: { api: ApiClient; report: Report }) {
+function ReportView({
+  api,
+  report,
+  reports,
+}: {
+  api: ApiClient;
+  report: Report;
+  reports: Report[];
+}) {
   const data = useQuery({
     queryKey: ["report", report.id],
     queryFn: () => api.report(report.id),
+    staleTime: Infinity,
   });
   const [error, setError] = useState<unknown>();
   function save(text: string, type: string, extension: string) {
@@ -219,7 +234,96 @@ function ReportView({ api, report }: { api: ApiClient; report: Report }) {
           <p className="muted">
             {statusLabel(data.data.status)} · Data {data.data.data_date}
           </p>
-          <Json value={data.data} />
+          {typeof data.data.markdown === "string" ? (
+            <>
+              <Markdown
+                text={data.data.markdown}
+                sourceLabels={Object.fromEntries(
+                  reports.map((r) => [
+                    r.id,
+                    `${statusLabel(r.mode)} · ${r.data_date}`,
+                  ]),
+                )}
+              />
+              {!!(data.data as unknown as { charts?: ChatChart[] }).charts
+                ?.length && (
+                <ChatCharts
+                  charts={
+                    (data.data as unknown as { charts: ChatChart[] }).charts
+                  }
+                />
+              )}
+              {(
+                data.data as unknown as {
+                  portfolio_proposals?: PortfolioProposal[];
+                }
+              ).portfolio_proposals?.map((p) => (
+                <ChatPortfolioReview api={api} proposal={p} key={p.import_id} />
+              ))}
+            </>
+          ) : report.mode === "sec_research" ? (
+            <SecReportView data={data.data as unknown as SecReport} />
+          ) : (
+            <>
+              <div className="metrics">
+                <Metric label="Data date" value={data.data.data_date} />
+                <Metric
+                  label="Research candidates"
+                  value={
+                    data.data.status.startsWith("blocked")
+                      ? "Unavailable"
+                      : (data.data.candidates?.length ?? "Unavailable")
+                  }
+                />
+                <Metric
+                  label="Coverage"
+                  value={statusLabel(data.data.status)}
+                />
+              </div>
+              {!!data.data.candidates?.length && (
+                <div className="table-scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Stock</th>
+                        <th>Close</th>
+                        <th>Volume ratio</th>
+                        <th>Explore</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.data.candidates.map((c) => (
+                        <tr key={c.symbol}>
+                          <td>
+                            <strong>{c.symbol}</strong>
+                            <br />
+                            {c.name}
+                          </td>
+                          <td>{c.close.toFixed(2)}</td>
+                          <td>{c.volume_ratio?.toFixed(2) ?? "Unavailable"}</td>
+                          <td>
+                            <a
+                              href={`?report=${report.id}&symbol=${encodeURIComponent(c.symbol)}#research`}
+                            >
+                              Chart & sources →
+                            </a>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {!!data.data.errors?.length && (
+                <Disclosure title="Source errors" open>
+                  <Json value={data.data.errors} />
+                </Disclosure>
+              )}
+            </>
+          )}
+          <Disclosure title="Structured report data">
+            <Json value={data.data} />
+          </Disclosure>
         </>
       )}
     </div>
@@ -240,7 +344,11 @@ export default function Home({
   onResearch: () => void;
   reportsReady?: boolean;
 }) {
-  const [selected, setSelected] = useState("");
+  const [selected, setSelected] = useState(
+    new URLSearchParams(location.search).has("symbol")
+      ? ""
+      : (new URLSearchParams(location.search).get("report") ?? ""),
+  );
   const [offset, setOffset] = useState(0);
   const next = useQuery({
     queryKey: ["report-page", offset],
@@ -248,6 +356,11 @@ export default function Home({
     enabled: offset > 0,
   });
   const shown = offset ? (next.data ?? []) : reports;
+  const selectedReport = useRef<HTMLDivElement>(null);
+  const selectedVisible = shown.some((r) => r.id === selected);
+  useEffect(() => {
+    selectedReport.current?.scrollIntoView({ block: "start" });
+  }, [selected, selectedVisible]);
   const daily = reports.find((r) =>
     ["live", "historical_snapshot"].includes(r.mode),
   );
@@ -272,149 +385,133 @@ export default function Home({
       : (daily?.summary.candidates?.length ?? "Unavailable");
   return (
     <div className="home-page">
-      <section className="home-hero">
-        <div className="hero-copy">
-          <p className="eyebrow">
-            <span /> A LITTLE CLARITY, FRESH DAILY
-          </p>
-          <h2>
-            Good research.
-            <br />
-            <em>Slow simmer.</em>
-          </h2>
-          <p className="hero-description">
-            A quieter place to make sense of the market.
-            <br className="desktop-break" /> Steve does the prep. You do the
-            thinking.
-          </p>
-          <button className="primary hero-cta" onClick={onResearch}>
-            Explore your research <ArrowRight size={18} />
-          </button>
-          <p className="hero-footnote">Your own workspace. Your own pace.</p>
-        </div>
-        <KitchenScene
-          working={active.some((j) =>
-            ["scan", "weekly", "agent"].includes(j.kind),
-          )}
-          reportId={
-            daily?.quality.startsWith("blocked") ? undefined : daily?.id
-          }
-        />
-      </section>
-      <section className="daily-serving" aria-label="Your daily serving">
-        <div className="serving-intro">
-          <UtensilsCrossed size={19} />
-          <span>
-            On today's menu
-            <small>{latest ?? "Waiting for a market date"}</small>
-          </span>
-        </div>
-        <Metric
-          label="Latest daily report"
-          value={daily?.data_date ?? "Not served yet"}
-          note={
-            daily
-              ? `Scan outcome: ${statusLabel(daily.quality)}`
-              : "Start with a fresh scan"
-          }
-        />
-        <Metric
-          label="Research candidates"
-          value={candidateCount}
-          note={
-            daily?.quality.startsWith("blocked")
-              ? "Scan blocked; inspect its diagnostics"
-              : daily?.quality === "partial_coverage"
-                ? "Passed screening among valid histories; coverage is incomplete"
-                : "Stocks that passed every screening rule"
-          }
-        />
-        <Metric
-          label="Active jobs"
-          value={active.length}
-          note={
-            active.length
-              ? "Let him cook. Follow along in Activity."
-              : "The kitchen is taking a breather"
-          }
-        />
-      </section>
-      <details className="scan-drawer" open={scanOpen}>
-        <summary
-          onClick={(event) => {
-            event.preventDefault();
-            setScanTouched(true);
-            setScanOpen((open) => !open);
-          }}
-        >
-          <span>Make a fresh serving</span>
-          <small>Preview the dates, then start a scan</small>
-        </summary>
-        <ScanForm api={api} />
-      </details>
-      <details className="saved-servings">
-        <summary>
-          <span>Saved servings</span>
-          <small>Your reports, with their original dates and coverage</small>
-        </summary>
-        <div className="reports-toolbar">
-          <h2>Your research journal</h2>
-          <button
-            disabled={weekly.isPending || !daily}
-            onClick={() =>
-              weekly.mutate({ end_date: daily?.data_date, mode: daily?.mode })
+      <SteveChat api={api} reports={reports} />
+      <details className="background-work" open={!!selected || scanOpen}>
+        <summary>Reports & background jobs</summary>
+        <button className="research-shortcut" onClick={onResearch}>
+          Explore charts, company filings & reported holdings{" "}
+          <ArrowRight size={16} />
+        </button>
+        <section className="daily-serving" aria-label="Your daily serving">
+          <div className="serving-intro">
+            <UtensilsCrossed size={19} />
+            <span>
+              Latest scan
+              <small>{daily?.data_date ?? "Waiting for a market scan"}</small>
+            </span>
+          </div>
+          <Metric
+            label="Latest daily report"
+            value={daily?.data_date ?? "Not served yet"}
+            note={
+              daily
+                ? `Scan outcome: ${statusLabel(daily.quality)}`
+                : "Start with a fresh scan"
             }
+          />
+          <Metric
+            label="Research candidates"
+            value={candidateCount}
+            note={
+              daily?.quality.startsWith("blocked")
+                ? "Scan blocked; inspect its diagnostics"
+                : daily?.quality === "partial_coverage"
+                  ? "Passed screening among valid histories; coverage is incomplete"
+                  : "Stocks that passed every screening rule"
+            }
+          />
+          <Metric
+            label="Active jobs"
+            value={active.length}
+            note={
+              active.length
+                ? "Let him cook. Follow along in Activity."
+                : "The kitchen is taking a breather"
+            }
+          />
+        </section>
+        <details className="scan-drawer" open={scanOpen}>
+          <summary
+            onClick={(event) => {
+              event.preventDefault();
+              setScanTouched(true);
+              setScanOpen((open) => !open);
+            }}
           >
-            Queue weekly summary
-          </button>
-        </div>
-        <ActionState action={weekly} />
-        <ErrorBox error={next.error} />
-        {shown.length ? (
-          shown.map((r) => (
-            <div key={r.id}>
-              <button
-                className="report-row"
-                onClick={() => setSelected(selected === r.id ? "" : r.id)}
-                aria-expanded={selected === r.id}
+            <span>Make a fresh serving</span>
+            <small>Preview the dates, then start a scan</small>
+          </summary>
+          <ScanForm api={api} />
+        </details>
+        <details className="saved-servings" open={!!selected}>
+          <summary>
+            <span>Saved servings</span>
+            <small>Your reports, with their original dates and coverage</small>
+          </summary>
+          <div className="reports-toolbar">
+            <h2>Your research journal</h2>
+            <button
+              disabled={weekly.isPending || !daily}
+              onClick={() =>
+                weekly.mutate({ end_date: daily?.data_date, mode: daily?.mode })
+              }
+            >
+              Queue weekly summary
+            </button>
+          </div>
+          <ActionState action={weekly} />
+          <ErrorBox error={next.error} />
+          {shown.length ? (
+            shown.map((r) => (
+              <div
+                key={r.id}
+                ref={r.id === selected ? selectedReport : undefined}
               >
-                <div>
-                  <strong>{r.data_date}</strong>
-                  <small>
-                    {statusLabel(r.mode)} ·{" "}
-                    {r.summary.run_at_utc
-                      ? dateTime(r.summary.run_at_utc)
-                      : `Run ${r.id.slice(0, 8)}`}
-                  </small>
-                </div>
-                <Badge>{r.quality}</Badge>
-                <span>
-                  Open <ArrowRight size={14} />
-                </span>
-              </button>
-              {selected === r.id && <ReportView api={api} report={r} />}
-            </div>
-          ))
-        ) : (
-          <Empty>
-            No servings yet. Preview a scan to see the dates it needs.
-          </Empty>
-        )}
-        <div className="pagination">
-          <button
-            disabled={!offset}
-            onClick={() => setOffset(Math.max(0, offset - 100))}
-          >
-            Previous
-          </button>
-          <span>Page {offset / 100 + 1}</span>
-          <button
-            disabled={shown.length !== 100}
-            onClick={() => setOffset(offset + 100)}
-          >
-            Next
-          </button>
-        </div>
+                <button
+                  className="report-row"
+                  onClick={() => setSelected(selected === r.id ? "" : r.id)}
+                  aria-expanded={selected === r.id}
+                >
+                  <div>
+                    <strong>{r.data_date}</strong>
+                    <small>
+                      {statusLabel(r.mode)} ·{" "}
+                      {r.summary.run_at_utc
+                        ? dateTime(r.summary.run_at_utc)
+                        : `Run ${r.id.slice(0, 8)}`}
+                    </small>
+                  </div>
+                  <Badge>{r.quality}</Badge>
+                  <span>
+                    Open <ArrowRight size={14} />
+                  </span>
+                </button>
+                {selected === r.id && (
+                  <ReportView api={api} report={r} reports={reports} />
+                )}
+              </div>
+            ))
+          ) : (
+            <Empty>
+              No servings yet. Preview a scan to see the dates it needs.
+            </Empty>
+          )}
+          <div className="pagination">
+            <button
+              disabled={!offset}
+              onClick={() => setOffset(Math.max(0, offset - 100))}
+            >
+              Previous
+            </button>
+            <span>Page {offset / 100 + 1}</span>
+            <button
+              disabled={shown.length !== 100}
+              onClick={() => setOffset(offset + 100)}
+            >
+              Next
+            </button>
+          </div>
+        </details>
       </details>
     </div>
   );

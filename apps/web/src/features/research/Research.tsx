@@ -28,6 +28,7 @@ import {
   Toggle,
 } from "../../components/UI";
 import Candles from "../charts/Candles";
+import SecResearch from "./SecResearch";
 const MovementScene = lazy(() => import("../market-scene/MovementScene"));
 
 export default function Research({
@@ -79,6 +80,7 @@ export default function Research({
     queryKey: ["report", report?.id],
     queryFn: () => api.report(report!.id),
     enabled: !!report,
+    staleTime: Infinity,
   });
   useEffect(() => {
     if (
@@ -222,7 +224,8 @@ export default function Research({
           />
           {movement.isFetching && (
             <p className="loading" role="status">
-              Loading cached market data…
+              Reading your dated market cache. The first load can take longer;
+              returning views reuse it.
             </p>
           )}
           {!movement.data && !movement.isFetching && !movement.error && (
@@ -353,12 +356,18 @@ export default function Research({
                 error={bars.error}
                 onRetry={() => void bars.refetch()}
               />
-              {bars.isFetching && (
-                <p className="loading">Loading daily candles…</p>
-              )}
+              {bars.isFetching &&
+                (!bars.data ? (
+                  <div className="chart-skeleton" role="status">
+                    <span />
+                    <p>Loading dated daily candles…</p>
+                  </div>
+                ) : (
+                  <p className="loading">Refreshing cached daily candles…</p>
+                ))}
               {bars.data && <Candles data={bars.data} pivot={metrics?.pivot} />}
               {metrics && (
-                <Disclosure title="Why it made the cut">
+                <Disclosure title="Why it made the cut" open>
                   <div className="metrics">
                     <Metric label="Breakout" value={money(metrics.pivot)} />
                     <Metric
@@ -424,9 +433,18 @@ export default function Research({
                             "offline_unavailable",
                           ].includes(researchState(content.data))
                         ? "Company research was not run in this scan."
-                        : "No company research was produced for this symbol; candidate limits and source gaps may apply."}
+                        : "No company research was produced for this symbol; candidate limits and source gaps may apply."}{" "}
                     Technical metrics do not establish a catalyst or financial
-                    health.
+                    health.{" "}
+                    <button
+                      onClick={() =>
+                        document
+                          .getElementById("sec-research")
+                          ?.scrollIntoView({ behavior: "smooth" })
+                      }
+                    >
+                      Read company filings & reported holdings ↓
+                    </button>
                   </p>
                 )}
               </Disclosure>
@@ -440,6 +458,12 @@ export default function Research({
           )}
         </Panel>
       </div>
+      <SecResearch
+        api={api}
+        reports={reports}
+        reportId={report?.id}
+        selected={selected}
+      />
       {content.data && (
         <Disclosure
           title="Coverage, screening reasons & data errors"

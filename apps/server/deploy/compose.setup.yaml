@@ -1,5 +1,5 @@
 x-setup: &setup
-  platform: linux/amd64
+  platform: "${COSOUP_SERVER_PLATFORM:-linux/amd64}"
   image: cosoup-${MODE:?Set setup mode}-server:local
   labels: &labels
     com.cosoup.private-root: "${SERVER_ROOT}"

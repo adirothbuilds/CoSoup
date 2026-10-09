@@ -26,7 +26,7 @@ def initialize(root, timezone, host_root=None):
         if not path.exists():
             path.write_text(secrets.token_urlsafe(40))
             path.chmod(0o600)
-    for name in ["api_token", "archive_key", "massive_api_key", "r2_access_key", "r2_secret_key"]:
+    for name in ["api_token", "archive_key", "massive_api_key", "sec_user_agent", "r2_access_key", "r2_secret_key"]:
         path = root/"secrets"/name
         if not path.exists():
             path.write_bytes(secrets.token_bytes(32) if name == "archive_key" else
@@ -54,7 +54,7 @@ def roles(database, directory):
         "scheduler": common | {"schedules", "occurrences"},
         "storage": None,  # Consistent encrypted pg_dump requires reading all tables.
         "imports": common | {"imports", "artifacts"},
-        "codex": common | {"reports", "artifacts", "portfolios", "transactions"},
+        "codex": common | {"reports", "signals", "artifacts", "portfolios", "transactions", "imports"},
     }
     writable = {
         "api": {"jobs", "events", "reservations", "policies", "schedules", "rules", "portfolios", "transactions", "imports", "artifacts"},

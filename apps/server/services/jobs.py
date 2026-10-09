@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from ..errors import Cancelled, ServiceError
 from ..persistence.models import Event, Job, Reservation, now, uid
 
-QUEUES = {"scan": "scanner", "weekly": "scanner", "portfolio_analysis": "scanner",
+QUEUES = {"scan": "scanner", "weekly": "scanner", "portfolio_analysis": "scanner", "sec_sync": "scanner",
           "archive": "storage", "restore": "storage", "backup": "storage",
           "import": "imports", "agent": "codex"}
 

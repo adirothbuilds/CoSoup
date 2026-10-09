@@ -86,7 +86,9 @@ Get JSON/Markdown with `/api/v1/reports/{id}/content?format=json` or `format=mar
 
 ## Durable scheduling and logs
 
-The separate scheduler reads the **host system clock** and persists schedules/occurrences in PostgreSQL. Set `timezone` to the host's intended IANA zone; timestamps are stored in UTC. Market-close triggers use the NY exchange calendar with holidays, early closes and configurable settlement minutes. Local cron triggers use their explicit zone or the server default.
+The separate scheduler reads the **host system clock** and persists schedules/occurrences in PostgreSQL. Set `timezone` to the host's intended IANA zone; timestamps are stored in UTC. Market-close triggers use the NY exchange calendar with holidays, early closes and configurable settlement minutes. The default `market_data_ready_time: "01:00"` additionally delays acquisition until 01:00 New York time on the following calendar day, because end-of-day entitlement can reject the same-day grouped endpoint after the exchange closes. This is a conservative operator policy, not a provider publication guarantee. Set it to `null` only for a verified provider entitlement that permits post-close same-day acquisition. The scan plan and worker enforce the same availability boundary; exact source errors still stop execution without automatic retries. Local cron triggers use their explicit zone or the server default.
+
+`GET /market/context` separates the latest completed exchange session from the latest provider-ready session, and returns the next acquisition window and its exchange-close timestamp. A Friday session becomes ready on Saturday morning, including after an early close; the following scan waits for Monday's session to become ready on Tuesday. Editing an existing schedule recalculates its persisted next occurrence under the current policy.
 
 Prepare **disabled** daily, weekly, monthly-archive and nightly-backup examples:
 
@@ -143,9 +145,11 @@ Build the dedicated image with `docker compose ... --profile codex build codex-w
 
 The wrapper copies authorized reports into a per-job workspace, runs headless terminal `codex exec`, validates structured output/source IDs and removes scratch. Current web research is disabled in this adapter. Missing sources are reported; model output cannot directly modify the journal, scheduler or repo. The model service receives authorized input contents, which can include portfolio data only with the explicit flag.
 
-Codex is disabled by default. Set `codex_enabled:true` and `codex_sandbox_verified:true` **only after** verifying authentication, model access and filesystem/tool isolation on the host. The outer Bubblewrap namespace exposes only system runtime, task workspace and dedicated profile; the official CLI's workspace-write sandbox must also protect profile authentication from tool reads. Verify denied reads of `/run/secrets`, host files, other tasks and the dedicated auth file, plus denied writes outside the task. Some Docker/kernel policies block Bubblewrap or nested CLI sandboxing. Do not bypass sandboxing, run privileged or mount the Docker socket to make it work. An unenforceable sandbox leaves the feature disabled and requires an alternative operator-managed isolated runtime adapter.
+Codex is disabled by default. Set `codex_enabled:true` and `codex_sandbox_verified:true` **only after** verifying authentication, model access and filesystem/tool isolation on the host. The outer Bubblewrap namespace exposes system runtime, the task workspace and only the dedicated `auth.json`, mounted read-only into an ephemeral CLI home. It retains Docker's masked procfs for namespace setup. The official CLI uses a trusted `steve` permissions profile: tools can read runtime/task files, write regular files only under `/work`, and cannot read authentication or procfs. Tool networking, web search, apps, plugins, delegation and approval escalation are disabled. The CLI harness can still authenticate and contact the model service. The legacy `workspace-write` preset does not establish credential secrecy.
 
-Start it only after those checks: `docker compose ... --profile codex up -d codex-worker`. Dedicated terminal access is optional for operator login/diagnostics; keep it separate from untrusted task execution. No model call, paid subscription or authentication is established by building an image.
+Verify denied reads of `/run/secrets`, host files, other tasks and the dedicated auth file, plus denied writes outside the task. Run `tools/validate_steve_sandbox.py` inside the built worker under its actual Compose security settings for synthetic checks; `--real-auth` tests whether tools can open dedicated authentication without reading its contents. These checks do not replace a bounded authenticated model/tool request. Some Docker/kernel policies block Bubblewrap or nested CLI sandboxing. Do not bypass sandboxing, run privileged or mount the Docker socket to make it work. An unenforceable sandbox leaves the feature disabled and requires an alternative operator-managed isolated runtime adapter.
+
+Start it only after those checks: `docker compose ... --profile codex up -d codex-worker`. The trusted analyst profile pins `medium` reasoning. Select the model with `CODEX_MODEL` in the private master env and rerender configuration before restarting the analyst worker. Dedicated terminal access is optional for operator login/diagnostics; keep it separate from untrusted task execution. No model call, paid subscription or authentication is established by building an image.
 
 ## API map and extension points
 
@@ -155,6 +159,8 @@ All paths below have prefix `/api/v1`; authenticated OpenAPI provides exact payl
 | --- | --- |
 | `GET /system/status`, `GET/PATCH /me`, `GET/POST /rules` | Status, owner preferences, immutable screening presets |
 | `GET /market/coverage`, `POST /scan-plans`, `POST /scans`, `POST /weekly-summaries`, `GET /signals` | Date coverage, missing-only acquisition, analysis and signal history |
+| `POST /research/sec-sync` | Owner-scoped public SEC research job; symbols/report and selected manager CIKs; no market refresh or model request |
+| `POST /agent/chat`, `GET /agent/conversations`, `GET /agent/conversations/{id}` | Source-scoped Codex conversation turns, saved responses and bounded recent history |
 | `GET /jobs`, `GET /jobs/{id}`, `POST /jobs/{id}/cancel`, `POST /jobs/{id}/resume` | Durable progress, cooperative cancellation and explicit recovery |
 | `GET /jobs/{id}/events`, `GET /jobs/{id}/events/stream` | Persisted events and SSE |
 | `GET /reports`, `GET /reports/{id}`, `GET /reports/{id}/content` | Report metadata and authorized JSON/Markdown |

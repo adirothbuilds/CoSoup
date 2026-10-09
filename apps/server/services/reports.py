@@ -35,7 +35,7 @@ def publish(context, data_date, mode, result, markdown):
         md = storage.register(db, job.owner_id, directory/"report.md", "reports", {"session": data_date})
         row = Report(owner_id=job.owner_id, job_id=job.id, data_date=data_date, mode=mode,
                      quality=result["status"], artifact_id=artifact.id, markdown_id=md.id,
-                     summary={k: v for k, v in result.items() if k not in {"signals", "positions"}})
+                     summary={k: v for k, v in result.items() if k not in {"signals", "positions", "companies", "managers", "charts", "portfolio_proposals", "markdown"}})
         db.add(row)
         db.flush()
         return {"report_id": row.id, "quality": row.quality}

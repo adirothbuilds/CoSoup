@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -42,6 +42,12 @@ class ScanRequest(Input):
 class WeeklyRequest(Input):
     end_date: date | None = None
     mode: Literal["live", "historical_snapshot"] = "live"
+
+
+class SecSyncRequest(Input):
+    symbols: list[Annotated[str, Field(pattern=r"^[A-Z0-9][A-Z0-9.\-]{0,29}$")]] = Field(default_factory=list, max_length=10)
+    report_id: str | None = None
+    manager_ciks: list[Annotated[str, Field(pattern=r"^[0-9]{1,10}$")]] = Field(default_factory=lambda: ["1067983", "1336528"], max_length=5)
 
 
 class ScheduleRequest(Input):
@@ -104,7 +110,8 @@ class RestoreRequest(Input):
 
 class AgentRequest(Input):
     profile_id: Literal["research-analyst"] = "research-analyst"
-    task_type: Literal["daily_review", "weekly_review", "portfolio_review", "document_review"]
+    task_type: Literal["daily_review", "weekly_review", "portfolio_review", "document_review", "research_chat"]
+    conversation_id: str | None = Field(None, pattern=r"^[a-f0-9]{32}$")
     prompt: str = Field(min_length=1, max_length=8000)
     start_date: date | None = None
     end_date: date | None = None
@@ -112,6 +119,7 @@ class AgentRequest(Input):
     portfolio_id: str | None = None
     allow_portfolio_data: bool = False
     upload_ids: list[str] = Field(default_factory=list, max_length=4)
+    import_ids: list[str] = Field(default_factory=list, max_length=4)
     allow_uploaded_documents: bool = False
     allow_current_web_research: Literal[False] = False
 
@@ -128,3 +136,29 @@ class AgentRequest(Input):
         if self.start_date and self.end_date and self.start_date > self.end_date:
             raise ValueError("Invalid task range")
         return self
+
+
+class ChatRequest(Input):
+    conversation_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    prompt: str = Field(min_length=1, max_length=8000)
+    report_ids: list[str] = Field(default_factory=list, max_length=4)
+    upload_ids: list[str] = Field(default_factory=list, max_length=4)
+    import_ids: list[str] = Field(default_factory=list, max_length=4)
+    portfolio_id: str | None = None
+    allow_uploaded_documents: bool = False
+    allow_portfolio_data: bool = False
+
+    @model_validator(mode="after")
+    def scope(self):
+        if (self.upload_ids or self.import_ids) and not self.allow_uploaded_documents:
+            raise ValueError("Sharing attachments with Steve requires permission")
+        if self.portfolio_id and not self.allow_portfolio_data:
+            raise ValueError("Sharing the portfolio with Steve requires permission")
+        if not (self.report_ids or self.import_ids or self.upload_ids or self.portfolio_id):
+            raise ValueError("Select research, a portfolio, or an attachment")
+        return self
+
+
+class ConversationUpdate(Input):
+    title: str | None = Field(None, min_length=1, max_length=120)
+    archived: bool | None = None

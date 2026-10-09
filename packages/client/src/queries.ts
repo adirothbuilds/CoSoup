@@ -35,7 +35,11 @@ export function useWorkspace(api: ApiClient) {
   }, [client, finished]);
   const context = useQuery({
     queryKey: ["market-context"],
-    queryFn: () => api.request<{ latest_session: string }>("/market/context"),
+    queryFn: () => api.request<{
+      latest_session: string;
+      latest_completed_session?: string;
+      next_run?: { run_at_utc: string };
+    }>("/market/context"),
     staleTime: 60000,
   });
   return { reports, portfolios, jobs, context };
@@ -59,7 +63,8 @@ export function useMovement(
         data_date: date,
       }),
     enabled: !!date && (scope === "portfolio" ? !!portfolioId : !!reportId),
-    staleTime: 60000,
+    staleTime: 300000,
+    gcTime: 1800000,
   });
 }
 export function useBars(api: ApiClient, symbol?: string, date?: string) {
@@ -67,6 +72,7 @@ export function useBars(api: ApiClient, symbol?: string, date?: string) {
     queryKey: ["bars", symbol, date],
     queryFn: () => api.bars(symbol!, date),
     enabled: !!symbol && !!date,
-    staleTime: 60000,
+    staleTime: 300000,
+    gcTime: 1800000,
   });
 }

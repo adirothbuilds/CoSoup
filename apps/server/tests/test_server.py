@@ -177,9 +177,35 @@ class SchedulerTests(ServerCase):
 
     def test_early_close_and_weekly_holiday(self):
         at, _ = next_occurrence({"type": "market_close"}, datetime(2026, 11, 27, 14, tzinfo=timezone.utc), self.settings)
-        self.assertEqual(at.isoformat(), "2026-11-27T18:30:00+00:00")
+        self.assertEqual(at.isoformat(), "2026-11-28T06:00:00+00:00")
         at, _ = next_occurrence({"type": "market_close", "frequency": "weekly"}, datetime(2026, 4, 2, 12, tzinfo=timezone.utc), self.settings)
-        self.assertEqual(at.date().isoformat(), "2026-04-02")
+        self.assertEqual(at.isoformat(), "2026-04-03T05:00:00+00:00")
+
+    def test_provider_delay_and_legacy_close_policy(self):
+        at, _ = next_occurrence({"type": "market_close"}, datetime(2026, 10, 9, 4, 30, tzinfo=timezone.utc), self.settings)
+        self.assertEqual(at.isoformat(), "2026-10-09T05:00:00+00:00")
+        direct = self.settings.model_copy(update={"market_data_ready_time": None})
+        at, _ = next_occurrence({"type": "market_close"}, datetime(2026, 11, 27, 14, tzinfo=timezone.utc), direct)
+        self.assertEqual(at.isoformat(), "2026-11-27T18:30:00+00:00")
+
+    def test_scan_api_cannot_request_unavailable_session(self):
+        from unittest.mock import patch
+        with patch('stock_scanner.calendar.utc_now', return_value=datetime(2026, 10, 8, 20, 31, tzinfo=timezone.utc)):
+            response = self.client.post('/api/v1/scan-plans', json={'mode':'live','start_date':'2026-10-08','end_date':'2026-10-08'})
+            self.assertEqual(response.status_code, 422)
+            plan = self.client.post('/api/v1/scan-plans', json={'mode':'live'}).json()
+            self.assertEqual(plan['sessions'], ['2026-10-07'])
+            market = self.client.get('/api/v1/market/context').json()
+            self.assertEqual(market['latest_completed_session'], '2026-10-08')
+            self.assertEqual(market['latest_session'], '2026-10-07')
+            self.assertEqual(market['next_run']['run_at_utc'], '2026-10-09T05:00:00+00:00')
+        with patch('stock_scanner.calendar.utc_now', return_value=datetime(2026, 10, 9, 5, tzinfo=timezone.utc)):
+            plan = self.client.post('/api/v1/scan-plans', json={'mode':'live','start_date':'2026-10-08','end_date':'2026-10-08'}).json()
+            self.assertEqual(plan['sessions'], ['2026-10-08'])
+
+    def test_readiness_configuration_rejects_invalid_times(self):
+        with self.assertRaises(ValueError):
+            Settings(data_dir=self.root/'data', market_data_ready_time='25:00')
 
     def test_occurrence_persisted_once_and_restart(self):
         at = datetime(2026, 10, 2, 20, 30, tzinfo=timezone.utc)

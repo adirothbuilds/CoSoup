@@ -1,0 +1,132 @@
+{
+  "schema_version": 1,
+  "transport": "offline_task_local_cli",
+  "entrypoint": "python research_tools.py",
+  "authorization": "Only IDs and datasets in the explicitly approved context packet",
+  "tools": [
+    {
+      "name": "list_charts",
+      "command": "list",
+      "arguments": {},
+      "result": "Array of authorized chart metadata: id, title, unit, note",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "inspect_chart",
+      "command": "chart",
+      "arguments": {
+        "dataset_id": "authorized chart ID"
+      },
+      "result": "Authorized values, dates, unit and source_id",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "dataset_id"
+        ]
+      }
+    },
+    {
+      "name": "list_analyses",
+      "command": "analyses",
+      "arguments": {},
+      "result": "Array of authorized analysis metadata: id, source_id, kind, title",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "inspect_analysis",
+      "command": "inspect",
+      "arguments": {
+        "analysis_id": "authorized analysis ID"
+      },
+      "result": "Deterministic observations, operands, methods and explicit gaps",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "analysis_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "analysis_id"
+        ]
+      }
+    },
+    {
+      "name": "screen_observations",
+      "command": "screen",
+      "arguments": {
+        "analysis_id": "authorized screening ID",
+        "min_rs21": "optional finite number, percent",
+        "max_volatility": "optional nonnegative finite number, percent",
+        "max_abs_pivot_atr": "optional nonnegative finite number, ATR units",
+        "min_confirmed_days": "optional integer 0 through 5",
+        "limit": "integer 1 through 50, default 20"
+      },
+      "result": "source_id, data_date, filters, observations, matched, missing_required_measurements, returned, rows, note",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "analysis_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "min_rs21": {
+            "type": "number"
+          },
+          "max_volatility": {
+            "type": "number",
+            "minimum": 0
+          },
+          "max_abs_pivot_atr": {
+            "type": "number",
+            "minimum": 0
+          },
+          "min_confirmed_days": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20
+          }
+        },
+        "required": [
+          "analysis_id"
+        ]
+      }
+    }
+  ],
+  "writes": false,
+  "network": false,
+  "chart_output": {
+    "request": {
+      "dataset_id": "authorized chart ID",
+      "title": "string up to 160 characters"
+    },
+    "maximum_requests": 4,
+    "values_supplied_by": "host"
+  }
+}

@@ -89,8 +89,10 @@ services:
       <<: *environment
       SCANNER_DATABASE_USER: scanner_scanner
       MASSIVE_API_KEY_FILE: /run/secrets/massive_api_key
+      SEC_USER_AGENT_FILE: /run/secrets/sec_user_agent
     secrets:
       - massive_api_key
+      - sec_user_agent
       - source: scanner_database_password
         target: database_password
     volumes:
@@ -192,6 +194,7 @@ secrets:
   codex_database_password: {file: "${SERVER_ROOT}/secrets/codex_database_password"}
   api_token: {file: "${SERVER_ROOT}/secrets/api_token"}
   massive_api_key: {file: "${SERVER_ROOT}/secrets/massive_api_key"}
+  sec_user_agent: {file: "${SERVER_ROOT}/secrets/sec_user_agent"}
   r2_access_key: {file: "${SERVER_ROOT}/secrets/r2_access_key"}
   r2_secret_key: {file: "${SERVER_ROOT}/secrets/r2_secret_key"}
   archive_key: {file: "${SERVER_ROOT}/secrets/archive_key"}

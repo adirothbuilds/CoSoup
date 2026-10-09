@@ -216,10 +216,12 @@ function Workspace({
                 ? "Settings"
                 : page}
           </h1>
-          <span className="session-note">
+          <span className="session-note" title={data.context.data?.next_run
+            ? `Next scan window: ${new Date(data.context.data.next_run.run_at_utc).toLocaleString()}. Exchange close and provider data availability are separate.`
+            : undefined}>
             <span className="status-dot" aria-hidden="true" />
-            {data.context.data?.latest_session ?? "Date unavailable"} · Market
-            close data
+            Latest provider-ready session ·{" "}
+            {data.context.data?.latest_session ?? "Date unavailable"}
           </span>
         </div>
         <main id="content" className="content">

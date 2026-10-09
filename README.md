@@ -28,7 +28,7 @@
 
 # CoSoup
 
-Experimental personal research for US equity swing and medium/long-term opportunities. CoSoup combines Massive end-of-day data, a self-hosted server, web and iOS clients, and an optional Codex research companion called **Steve**. It produces English JSON and Markdown reports and has no broker connection, order execution or paid-plan upgrade mechanism.
+Experimental personal research for US equity swing and medium/long-term opportunities. CoSoup combines Massive end-of-day data, public SEC filings, a self-hosted server, web and iOS clients, and an optional Codex research companion called **Steve**. It produces English JSON and Markdown reports and has no broker connection, order execution or paid-plan upgrade mechanism.
 
 | In the pot | What you get |
 | --- | --- |
@@ -67,7 +67,7 @@ From the repository root, deploy a local Mac test environment:
 ./setup.sh --mode dev --copy-token
 ```
 
-The script builds and migrates the full Docker stack, waits for health and opens [the local web app](http://127.0.0.1:8081). Paste the owner token from the clipboard into Connect, then clear your clipboard. The core server uses amd64 emulation on Apple Silicon; the web image and optional Steve worker use native ARM64.
+The script builds and migrates the full Docker stack, waits for health and opens [the local web app](http://127.0.0.1:8081). Paste the owner token from the clipboard into Connect, then clear your clipboard. Application services use native ARM64 on Apple Silicon; the existing PostgreSQL deployment retains its pinned architecture.
 
 For a Linux server, use your actual private HTTPS origin:
 
@@ -86,7 +86,21 @@ Edit **only that `.env`** for your actual `MASSIVE_API_KEY`, optional integratio
 
 For the first scan, open **Home → Make a fresh serving**, uncheck **Offline: require existing dated cache**, choose **Company research → Current sources** if you want company facts and sources, select **Preview date coverage**, then **Queue scan**. Selecting company research turns offline off; offline scans provide technical screening only. Follow progress in **Activity**; initial acquisition needs 260 trading sessions and can take over an hour at the shared provider limit. Later online scans download only missing days. Offline scans require the selected session's inputs to be cached already.
 
+Home centers on **Chat with Steve**. Sources and saved conversations open on demand; reports and background jobs remain in a separate drawer. Ask a follow-up, request a chart, start a new conversation, rename it, or archive and restore it. Codex resumes its native session through the existing dedicated account login. The application preserves owner-scoped messages and typed outputs while Codex manages reasoning, compaction and optional subagents. No API-key fallback is used.
+
+Steve has trusted skills for dated research charts and portfolio documents. Offline chart tools inspect only approved cached data; the server supplies every plotted value and preserves source dates and coverage notes. Charts appear directly in the conversation with inspectable values. Daily screening and source ingestion remain background data workflows; a chat question does not initiate a provider scan.
+
+Ask Steve to **understand a setup**, **check financial quality**, or **follow reported holdings**. Trusted offline research tools explain numeric filter thresholds, compare ATR and volatility, inspect 21/63/126-session relative strength, and filter the approved observation list without changing saved scanner rules. New scans also include verified-history market breadth and a separate bounded filter-review list. Financial tools calculate matching-period margins, free cash flow, cash conversion and supported prior-year growth with filing dates and explicit gaps. Institutional tools inspect concentration and exact-security overlap within a common quarter. Measurements are descriptive; stale prices, incomplete coverage and incompatible reporting periods remain visible. The same tool and skill contracts can be used by future account-authenticated backend adapters.
+
+Attach PNG/JPEG screenshots, PDF statements or transaction CSVs from the chat composer. Local OCR/PDF extraction prepares evidence; images can also be shared with the connected agent through Vision. Choose the destination portfolio and explicitly permit document or portfolio sharing before sending. Steve can propose opening positions or transactions with source excerpts and unknown fields left blank. Edit and confirm the proposals in the chat before they enter the journal. The agent cannot confirm or write portfolio entries.
+
+The account-authenticated backend adapter, shared context, skills, chart requests and portfolio-proposal contract form a provider-neutral boundary. The current implementation uses Codex; a future Claude adapter can implement the same interface with its own supported user-login flow. Claude is not connected in this release. Native session state remains private and separate from the dedicated login.
+
 When a scan finishes, Home refreshes its latest report and candidate count. Open **Research** to inspect movement, daily candles and coverage details. It starts with the latest usable report and warns when a newer scan is blocked. A **Company research** notice explains whether source research ran and can prepare an online scan when it was disabled. A `partial_coverage` report can contain valid candidates alongside excluded or missing histories; a blocked scan shows its candidate count as unavailable. Research reads existing cached data, so changing the movement period does not start another provider download. Updating the application with the same setup command retains this cache.
+
+For automated SEC access, set `SEC_USER_AGENT` in the private `.env` to a truthful application name and a reachable contact email, for example `SEC_USER_AGENT='CoSoup/0.2 contact@example.com'`, then rerun setup. The contact value is kept in a private read-only file mounted only into the scanner worker; it is not added to Compose environment values or reports. Missing or invalid contact configuration stops before any SEC request. Standalone scanner runs may use the same variable or a private `SEC_USER_AGENT_FILE`.
+
+In **Research → Company filings & institutional holdings**, sync up to ten symbols and five manager CIKs directly from public SEC sources without a paid data plan or a new market scan. Blank symbols use the selected daily report's candidates. Defaults cover Berkshire Hathaway and Pershing Square. The saved research includes standard financial facts with their reported periods, recent filing links (including ownership/insider forms when discovered), cached annual/quarterly document excerpts, and up to two comparable 13F snapshots per manager. Charts compare financial periods of similar length; the full original documents remain available through their SEC links. 13F changes are share-count differences, not verified purchases or sales. Amendments, missing snapshots, nonstandard financial tags and incomplete filing discovery remain explicit gaps. Source access failures stop the sync and preserve a diagnostic report; they never establish an absence of holdings or opportunities.
 
 To manage the local deployment:
 

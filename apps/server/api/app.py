@@ -3,7 +3,7 @@ import hashlib
 import hmac
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from decimal import Decimal
 from datetime import date
@@ -30,13 +30,17 @@ from ..workers.scheduler.triggers import next_occurrence, validate
 from .schemas import AgentRequest, AnalysisRequest, ConfirmImport, ImportRequest, PortfolioRequest, RestoreRequest, ScanRequest, ScheduleRequest, TransactionRequest, WeeklyRequest
 from .limits import BodyLimit
 from .sessions import BrowserSessions
-from .schemas import MovementRequest
+from .schemas import MovementRequest, SecSyncRequest, ChatRequest, ConversationUpdate
 from ..services.market import bars as cached_bars, movement
 from ..services.agent_context import context_packet
+from ..adapters.analyst import CAPABILITIES
 
 
 def view(row, fields):
-    return {name: str(value) if isinstance(value := getattr(row, name), Decimal) else value for name in fields.split()}
+    result = {name: str(value) if isinstance(value := getattr(row, name), Decimal) else value for name in fields.split()}
+    if isinstance(row, Report) and "summary" in result:
+        result["summary"] = {k:v for k,v in result["summary"].items() if k not in {"charts","portfolio_proposals","markdown"}}
+    return result
 
 
 def create_app(settings=None, database=None, token=None):
@@ -118,10 +122,16 @@ def create_app(settings=None, database=None, token=None):
         return sessions.revoke(request,response)
 
     @app.get("/api/v1/market/context")
-    def market_context(principal=Depends(owner)):
+    def market_context(principal=Depends(owner), db=Depends(db_session)):
         from stock_scanner.calendar import expected_session, next_run
-        return {"latest_session":expected_session(settlement_minutes=settings.settlement_minutes),
-                "next_run":next_run(settlement_minutes=settings.settlement_minutes),"market_timezone":"America/New_York"}
+        cfg = current(db)
+        return {"latest_session": expected_session(settlement_minutes=cfg.settlement_minutes,
+                                                   data_ready_time=cfg.market_data_ready_time),
+                "latest_completed_session": expected_session(settlement_minutes=cfg.settlement_minutes),
+                "next_run": next_run(settlement_minutes=cfg.settlement_minutes,
+                                     data_ready_time=cfg.market_data_ready_time),
+                "data_ready_time_new_york": cfg.market_data_ready_time,
+                "market_timezone": "America/New_York"}
 
     @app.get("/api/v1/market/tickers/{symbol}/bars")
     def market_bars(symbol: str, start_date: date | None = None, end_date: date | None = None,
@@ -219,6 +229,13 @@ def create_app(settings=None, database=None, token=None):
     @app.post("/api/v1/weekly-summaries", status_code=202)
     def summary(request: WeeklyRequest, principal=Depends(owner), db=Depends(db_session), key: str | None = Header(None, alias="Idempotency-Key")):
         return submitted(db, principal, "weekly", request.model_dump(mode="json"), key)
+
+    @app.post("/api/v1/research/sec-sync", status_code=202)
+    def sec_sync(request: SecSyncRequest, principal=Depends(owner), db=Depends(db_session), key: str | None = Header(None, alias="Idempotency-Key")):
+        from ..services.sec_research import sync_symbols
+        payload = request.model_dump(mode="json")
+        payload["symbols"] = sync_symbols(db, storage, current(db), principal, payload)
+        return submitted(db, principal, "sec_sync", payload, key)
 
     @app.get("/api/v1/signals")
     def signals(mode: str = "live", limit: int = Query(100, ge=1, le=500), offset: int = Query(0, ge=0), principal=Depends(owner), db=Depends(db_session)):
@@ -552,8 +569,126 @@ def create_app(settings=None, database=None, token=None):
     def profiles(principal=Depends(owner)):
         return [{"id": "research-analyst", "enabled": settings.codex_enabled,
                  "ready": settings.codex_enabled and settings.codex_sandbox_verified,
-                 "capabilities": ["daily_review", "weekly_review", "portfolio_review", "document_review"], "writes_portfolio": False,
+                 "backend": CAPABILITIES,
+                 "capabilities": ["daily_review", "weekly_review", "portfolio_review", "document_review", "research_chat"], "writes_portfolio": False,
                  "vision_media_types": ["image/png","image/jpeg"], "context_schema_version":1}]
+
+    def chat_jobs(db, principal, conversation=None):
+        query = select(Job).where(Job.owner_id == principal, Job.kind == "agent")
+        if conversation is not None:
+            query = query.where(Job.payload["conversation_id"].as_string() == conversation)
+        rows = list(db.scalars(query.order_by(Job.created_at.desc()).limit(501 if conversation else 500)))
+        return [r for r in rows if r.payload.get("task_type") == "research_chat" and
+                (conversation is None or r.payload.get("conversation_id") == conversation)]
+
+    @app.get("/api/v1/agent/conversations")
+    def conversations(principal=Depends(owner), db=Depends(db_session)):
+        groups = {}
+        for row in chat_jobs(db, principal):
+            cid = row.payload["conversation_id"]
+            meta = row.payload.get("conversation_meta", {})
+            groups.setdefault(cid, {"id": cid, "title": meta.get("title") or row.payload["prompt"][:80], "archived":meta.get("archived",False), "updated_at": row.updated_at, "status": row.status})
+        return list(groups.values())[:30]
+
+    @app.get("/api/v1/agent/conversations/{identity}")
+    def conversation(identity: str, principal=Depends(owner), db=Depends(db_session)):
+        messages = []
+        turns = chat_jobs(db, principal, identity)
+        for row in reversed(turns):
+            item = {"job_id": row.id, "prompt": row.payload["prompt"], "status": row.status,
+                    "created_at": row.created_at, "error": row.error, "report_ids": row.payload.get("report_ids", []),
+                    "answer": None, "report_id": row.result.get("report_id"),
+                    "import_ids": row.payload.get("import_ids", []), "upload_ids": row.payload.get("upload_ids", []),
+                    "portfolio_id": row.payload.get("portfolio_id"),
+                    "document_export_authorized": bool(row.payload.get("allow_uploaded_documents")),
+                    "portfolio_export_authorized": bool(row.payload.get("allow_portfolio_data"))}
+            if item["report_id"]:
+                report = owned(db, Report, item["report_id"], principal)
+                artifact = owned(db, Artifact, report.artifact_id, principal)
+                with storage.reader():
+                    data = json.loads(storage.read(artifact, current(db).limits.task_output_bytes).read_text())
+                item["answer"] = {k: data.get(k) for k in ("markdown", "sources", "gaps", "status", "data_date", "charts", "portfolio_proposals")}
+            messages.append(item)
+        meta = turns[0].payload.get("conversation_meta", {}) if turns else {}
+        return {"id": identity, "messages": messages, "title":meta.get("title") or (turns[-1].payload["prompt"][:80] if turns else ""), "archived":meta.get("archived",False)}
+
+    @app.patch("/api/v1/agent/conversations/{identity}")
+    def update_conversation(identity: str, request: ConversationUpdate, principal=Depends(owner), db=Depends(db_session)):
+        turns = chat_jobs(db, principal, identity)
+        if not turns:
+            raise ServiceError("not_found", "Conversation not found", 404)
+        if request.archived and any(r.status in {"queued","running","waiting_for_archive"} for r in turns):
+            raise ServiceError("chat_busy", "Wait for the response before archiving", 409)
+        row = owned(db, Job, turns[0].id, principal, lock=True)
+        meta = {**row.payload.get("conversation_meta", {}), **request.model_dump(exclude_none=True)}
+        row.payload = {**row.payload, "conversation_meta":meta}
+        return {"id":identity, **meta}
+
+    @app.post("/api/v1/agent/chat", status_code=202)
+    def chat(request: ChatRequest, principal=Depends(owner), db=Depends(db_session), key: str | None = Header(None, alias="Idempotency-Key")):
+        if not settings.codex_enabled or not settings.codex_sandbox_verified:
+            raise ServiceError("agent_disabled", "Steve needs the existing verified Codex connection", 503)
+        # Serialize turns for a conversation, including a double-click/idempotent replay.
+        with db.begin_nested():
+            if database.engine.dialect.name == "postgresql":
+                from sqlalchemy import text
+                lock_key = int.from_bytes(hashlib.sha256((principal+request.conversation_id).encode()).digest()[:8], "big", signed=True)
+                db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": lock_key})
+            key_value = key_header(key)
+            if key_value:
+                old = db.scalar(select(Job).where(Job.owner_id == principal, Job.idempotency_key == key_value))
+                if old:
+                    intent = {**request.model_dump(mode="json"), "selected_report_ids": request.report_ids}
+                    if old.kind != "agent" or old.payload.get("chat_intent") != intent:
+                        raise ServiceError("idempotency_conflict", "Key was used for a different message")
+                    return {"job_id": old.id, "status": old.status}
+            previous = chat_jobs(db, principal, request.conversation_id)
+            if len(previous) >= 500:
+                raise ServiceError("conversation_limit", "Start a new conversation after 500 messages", 422)
+            meta = previous[0].payload.get("conversation_meta", {}) if previous else {}
+            if meta.get("archived"):
+                raise ServiceError("conversation_archived", "Restore this conversation before continuing", 409)
+            for turn in previous:
+                if turn.payload.get("allow_portfolio_data") and not request.allow_portfolio_data or turn.payload.get("allow_uploaded_documents") and not request.allow_uploaded_documents:
+                    raise ServiceError("conversation_export_denied", "Allow sharing previous private context to continue this conversation", 403)
+            if any(r.status in {"queued", "running", "waiting_for_archive"} for r in previous):
+                raise ServiceError("chat_busy", "Wait for the current response before sending a follow-up")
+            approved = list(dict.fromkeys(request.report_ids))
+            # The latest saved response carries the preceding authorized conversation.
+            prior = next((r for r in previous if r.status == "succeeded" and r.result.get("report_id")), None)
+            if prior:
+                approved.append(prior.result["report_id"])
+            end = datetime.now(timezone.utc).date().isoformat()
+            for identity in approved:
+                row = owned(db, Report, identity, principal)
+                if (row.mode == "portfolio" or row.summary.get("provenance", {}).get("portfolio_export_authorized")) and not request.allow_portfolio_data:
+                    raise ServiceError("portfolio_export_denied", "Use the explicit portfolio review flow for private portfolio sources", 403)
+                if row.summary.get("provenance", {}).get("document_export_authorized") and not request.allow_uploaded_documents:
+                    raise ServiceError("document_export_denied", "Use the explicit document review flow for uploaded evidence", 403)
+            payload = AgentRequest(task_type="research_chat", conversation_id=request.conversation_id,
+                                   prompt=request.prompt, end_date=end, report_ids=approved,
+                                   upload_ids=request.upload_ids, import_ids=request.import_ids,
+                                   portfolio_id=request.portfolio_id, allow_portfolio_data=request.allow_portfolio_data,
+                                   allow_uploaded_documents=request.allow_uploaded_documents).model_dump(mode="json")
+            if request.allow_uploaded_documents:
+                for field in ["upload_ids", "import_ids"]:
+                    payload[field] = list(dict.fromkeys([*payload[field], *(identity for turn in previous for identity in turn.payload.get(field, []))]))[:4]
+            context_packet(db, storage, current(db), principal, payload)
+            payload["conversation_meta"] = meta
+            payload["conversation"] = []
+            with storage.reader():
+                for turn in reversed(previous[:12]):
+                    if turn.status != "succeeded" or not turn.result.get("report_id"):
+                        continue
+                    report = owned(db, Report, turn.result["report_id"], principal)
+                    provenance = report.summary.get("provenance", {})
+                    if provenance.get("portfolio_export_authorized") and not request.allow_portfolio_data or provenance.get("document_export_authorized") and not request.allow_uploaded_documents:
+                        raise ServiceError("conversation_export_denied", "Allow sharing previous private context to continue this conversation", 403)
+                    artifact = owned(db, Artifact, report.artifact_id, principal)
+                    data = json.loads(storage.read(artifact, current(db).limits.task_output_bytes).read_text())
+                    payload["conversation"].append({"user":turn.payload["prompt"],"assistant":data.get("markdown", "")[:16000]})
+            payload["chat_intent"] = {**request.model_dump(mode="json"), "selected_report_ids": request.report_ids}
+            return submitted(db, principal, "agent", payload, key_value)
 
     @app.post("/api/v1/agent/context")
     def agent_context(request: AgentRequest, principal=Depends(owner), db=Depends(db_session)):
@@ -561,6 +696,8 @@ def create_app(settings=None, database=None, token=None):
 
     @app.post("/api/v1/agent/tasks", status_code=202)
     def agent(request: AgentRequest, principal=Depends(owner), db=Depends(db_session), key: str | None = Header(None, alias="Idempotency-Key")):
+        if request.task_type == "research_chat":
+            raise ServiceError("chat_endpoint_required", "Submit conversation messages through /api/v1/agent/chat", 422)
         if not settings.codex_enabled or not settings.codex_sandbox_verified:
             raise ServiceError("agent_disabled", "Codex is disabled until private authentication and sandbox verification are configured", 503)
         for identity in request.report_ids:

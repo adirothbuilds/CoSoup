@@ -64,6 +64,14 @@ def daily_markdown(report):
     if report['status'].startswith('blocked'):
         lines += ['', '**Opportunity availability cannot be inferred. A data failure is not a zero-candidate result.**', '']
     else:
+        if report.get('market_breadth'):
+            breadth = report['market_breadth']
+            lines += ['## Market context', '',
+                      f"Verified-history denominator: {breadth['valid_histories']:,}; excluded histories: {breadth['excluded_histories']:,}.", '']
+            for name, observation in breadth['measures'].items():
+                if observation['pct'] is not None:
+                    lines.append(f"- {name.replace('_', ' ')}: {observation['pct']:.1f}% ({observation['count']:,} verified histories).")
+            lines += ['', breadth['note'], '']
         lines += ['## Candidates passing all rules', '']
         if report.get('candidates'):
             lines += table(report['candidates'])
@@ -72,6 +80,16 @@ def daily_markdown(report):
         lines += ['', '## Near-breakout watchlist', '',
                   f'A separate watchlist within {near_distance:.0%} below the pivot. Breakout and volume confirmation may still be missing.', '']
         lines += table(report.get('near_breakouts', [])) if report.get('near_breakouts') else ['No securities meet the current watchlist rules.']
+        measured = [r for r in report.get('candidates', []) if r.get('analytics')]
+        if measured:
+            lines += ['', '## Setup measurements', '',
+                      '| Symbol | ATR / close | Annualized 20-session volatility | Pivot distance / ATR | Volume-confirmed days / 5 |',
+                      '|---|---:|---:|---:|---:|']
+            for row in measured:
+                a = row['analytics']
+                distance = f"{a['pivot_distance_atr']:.2f}" if a['pivot_distance_atr'] is not None else 'unavailable'
+                lines.append(f"| {safe_text(row['symbol'])} | {a['atr14_pct']:.2f}% | {a['realized_volatility20_pct']:.2f}% | {distance} | {a['volume_confirmed_days5']} |")
+            lines += ['', 'Descriptive measurements only; original eligibility and ranking are unchanged. ATR uses the mean of 14 true ranges; volatility uses 20 daily log changes and sqrt(252) annualization. Price changes exclude dividends.', '']
     lines += ['', '## Filter reasons', '']
     for name, count in sorted(report.get('filter_counts', {}).items(), key=lambda x: (-x[1], x[0])):
         lines.append(f'- {FILTER_LABEL.get(name, name)}: {count:,}. A stock can fail multiple rules.')

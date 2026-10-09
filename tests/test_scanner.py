@@ -55,6 +55,30 @@ class CalendarTests(unittest.TestCase):
         self.assertEqual(sessions_ending('2026-10-02', 260)[0], '2025-09-22')
         with self.assertRaises(ValueError): expected_session('2026-10-02T21:00:00')
 
+    def test_next_day_availability_boundary(self):
+        self.assertEqual(expected_session('2026-10-08T20:30:00Z', data_ready_time='01:00'), '2026-10-07')
+        self.assertEqual(expected_session('2026-10-09T04:59:59Z', data_ready_time='01:00'), '2026-10-07')
+        self.assertEqual(expected_session('2026-10-09T05:00:00Z', data_ready_time='01:00'), '2026-10-08')
+        ready = next_run('2026-10-09T04:30:00Z', data_ready_time='01:00')
+        self.assertEqual(ready['session'], '2026-10-08')
+        self.assertEqual(ready['run_at_utc'], '2026-10-09T05:00:00+00:00')
+        self.assertEqual(ready['market_close_at_utc'], '2026-10-08T20:00:00+00:00')
+
+    def test_next_day_weekend_early_close_and_dst(self):
+        ready = next_run('2026-11-28T05:30:00Z', data_ready_time='01:00')
+        self.assertEqual(ready['session'], '2026-11-27')
+        self.assertEqual(ready['run_at_utc'], '2026-11-28T06:00:00+00:00')
+        self.assertEqual(expected_session('2026-11-28T05:30:00Z', data_ready_time='01:00'), '2026-11-25')
+        self.assertEqual(expected_session('2026-11-28T06:00:00Z', data_ready_time='01:00'), '2026-11-27')
+        self.assertEqual(next_run('2026-11-28T06:00:00Z', data_ready_time='01:00')['session'], '2026-11-30')
+        self.assertEqual(next_run('2026-10-30T20:00:00Z', data_ready_time='01:00')['run_at_utc'], '2026-10-31T05:00:00+00:00')
+        self.assertEqual(next_run('2026-11-02T20:00:00Z', data_ready_time='01:00')['run_at_utc'], '2026-11-03T06:00:00+00:00')
+
+    def test_data_readiness_cannot_bypass_settlement_or_validation(self):
+        self.assertEqual(next_run('2026-10-08T20:00:00Z', settlement_minutes=600,
+                                  data_ready_time='01:00')['run_at_utc'], '2026-10-09T06:00:00+00:00')
+        with self.assertRaises(ValueError): next_run('2026-10-08T20:00:00Z', data_ready_time='25:00')
+
 
 class FilterTests(unittest.TestCase):
     def setUp(self):

@@ -71,6 +71,8 @@ export function statusLabel(status: string) {
         weekly_historical_snapshot: "Historical weekly summary",
         scan: "Market scan",
         agent: "Steve's analysis",
+        sec_sync: "SEC research sync",
+        sec_research: "Company filings & holdings",
       } as Record<string, string>
     )[status] ?? status
   );

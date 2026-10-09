@@ -20,6 +20,7 @@ from apps.server.config import Settings
 ROLES = ("admin", "api", "scanner", "scheduler", "storage", "imports", "codex")
 SECRET_NAMES = {role.upper() + "_DATABASE_PASSWORD": role + "_database_password" for role in ROLES}
 SECRET_NAMES.update(API_TOKEN="api_token", MASSIVE_API_KEY="massive_api_key",
+                    SEC_USER_AGENT="sec_user_agent",
                     R2_ACCESS_KEY="r2_access_key", R2_SECRET_KEY="r2_secret_key")
 COMPOSE_KEYS = ("BIND_ADDRESS", "SERVER_PORT", "WEB_BIND_ADDRESS", "WEB_PORT", "API_WORKERS",
                 "POSTGRES_MEMORY", "POSTGRES_CPUS", "API_MEMORY", "API_CPUS", "SCANNER_MEMORY", "SCANNER_CPUS",
@@ -84,7 +85,7 @@ def prepare(root, mode, host_root, uid, gid, architecture, origin=None):
     defaults = {"MODE": mode, "COMPOSE_PROJECT_NAME": f"cosoup-{mode}", "TIMEZONE": "Asia/Jerusalem",
                 "BIND_ADDRESS": "127.0.0.1", "SERVER_PORT": "8080", "WEB_BIND_ADDRESS": "127.0.0.1", "WEB_PORT": "8081",
                 "BROWSER_ORIGIN": origin or "", "BROWSER_SECURE_COOKIE": str(mode == "prod").lower(),
-                "MASSIVE_API_KEY": "", "R2_ENDPOINT": "", "R2_BUCKET": "", "R2_ACCESS_KEY": "", "R2_SECRET_KEY": "",
+                "MASSIVE_API_KEY": "", "SEC_USER_AGENT": "", "R2_ENDPOINT": "", "R2_BUCKET": "", "R2_ACCESS_KEY": "", "R2_SECRET_KEY": "",
                 "CODEX_ENABLED": "false", "CODEX_SANDBOX_VERIFIED": "false", "AUTOMATIC_ARCHIVES": "false", "ARCHIVE_EVICT": "false"}
     for key, default in defaults.items():
         values.setdefault(key, default)
@@ -129,6 +130,12 @@ def prepare(root, mode, host_root, uid, gid, architecture, origin=None):
     allowed = set(settings_keys) | set(limit_keys) | set(COMPOSE_KEYS) | set(SECRET_NAMES) | {"MODE", "COMPOSE_PROJECT_NAME", "ARCHIVE_KEY_BASE64"}
     if set(values) - allowed:
         raise SetupError("Unknown env keys: " + ", ".join(sorted(set(values) - allowed)))
+    if values["SEC_USER_AGENT"]:
+        from stock_scanner.primary import validate_sec_user_agent
+        try:
+            validate_sec_user_agent(values["SEC_USER_AGENT"])
+        except ValueError:
+            raise SetupError("Invalid SEC_USER_AGENT; use an application name and reachable contact email") from None
     for key, field in settings_keys.items():
         if key in values:
             model[field] = values[key] if values[key] else None
@@ -160,7 +167,7 @@ def prepare(root, mode, host_root, uid, gid, architecture, origin=None):
     native_platform = "linux/arm64" if architecture in {"arm64", "aarch64"} else "linux/amd64"
     compose = {"SERVER_ROOT": host_root, "SCANNER_UID": uid, "SCANNER_GID": gid, "MODE": mode,
                "COMPOSE_PROJECT_NAME": project, "COSOUP_WEB_PLATFORM": native_platform,
-               "COSOUP_CODEX_PLATFORM": native_platform}
+               "COSOUP_CODEX_PLATFORM": native_platform, "COSOUP_SERVER_PLATFORM": native_platform}
     compose.update({key: values[key] for key in COMPOSE_KEYS if key in values})
     write_private(root / "compose.env", env_text(compose))
     write_private(env_path, env_text(values))

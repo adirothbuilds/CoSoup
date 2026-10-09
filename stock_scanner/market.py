@@ -180,4 +180,17 @@ def assess(ticker, bars, benchmark, sessions, rules, data_error=None):
                   pivot_extension=extension, sma50_extension=sma_extension,
                   checks=checks, failed_filters=[k for k, v in checks.items() if not v],
                   first_bar_date=sessions[present[0]], last_bar_date=sessions[present[-1]])
+    from .analytics import technical
+    result["analytics"] = technical(bars, benchmark, pivot, rules.min_volume_ratio)
+    result["filter_evidence"] = {
+        "minimum_price": {"actual": close, "operator": ">=", "threshold": rules.min_price, "unit": "USD"},
+        "average_share_volume": {"actual": average_volume, "operator": ">=", "threshold": rules.min_avg_volume, "unit": "shares/day"},
+        "average_dollar_volume": {"actual": dollar_volume, "operator": ">=", "threshold": rules.min_avg_dollar_volume, "unit": "USD/day"},
+        "breakout": {"actual": close, "operator": ">", "threshold": pivot, "unit": "USD"},
+        "volume_confirmation": {"actual": volume_ratio, "operator": ">=", "threshold": rules.min_volume_ratio, "unit": "times"},
+        "relative_strength": {"actual": stock_return*100, "operator": "> both", "thresholds": [spy_return*100, 0], "unit": "%"},
+        "trend": {"actual": [close, sma50, sma200], "operator": "strictly descending", "unit": "USD"},
+        "pivot_extension": {"actual": extension*100, "operator": "<=", "threshold": rules.max_pivot_extension*100, "unit": "%"},
+        "sma50_extension": {"actual": sma_extension*100, "operator": "<=", "threshold": rules.max_sma50_extension*100, "unit": "%"},
+    }
     return result

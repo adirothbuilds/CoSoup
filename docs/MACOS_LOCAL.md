@@ -6,7 +6,7 @@ Install and start Docker Desktop, then deploy from the checkout with one command
 ./setup.sh --mode dev --copy-token
 ```
 
-The web app opens at `http://127.0.0.1:8081`; paste the owner token from the clipboard into Connect and clear the clipboard. Intel and Apple Silicon Macs are supported by the setup configuration. The server uses amd64 emulation on Apple Silicon and the web image is native. No host Python/Node development dependencies are needed for this Docker deployment.
+The web app opens at `http://127.0.0.1:8081`; paste the owner token from the clipboard into Connect and clear the clipboard. Intel and Apple Silicon Macs are supported by the setup configuration. Application services use the host's native architecture; PostgreSQL retains its pinned deployment platform. No host Python/Node development dependencies are needed for this Docker deployment.
 
 Edit only `~/.local/share/cosoup-dev/.env`, then rerun that command. It generates the internal configuration/secret mounts and retains the database, reports and credentials. Add your actual `MASSIVE_API_KEY` there only when testing online acquisition. See the [complete setup guide](SETUP.md) for env fields, dev/prod selection, curl bootstrap and management commands.
 

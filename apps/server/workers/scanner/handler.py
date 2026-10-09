@@ -41,9 +41,12 @@ def scan(context, adapter=None):
         output, result = adapter.run(storage.path("market"), rules, session, planning["mode"],
                                      job.payload.get("research", "none") != "none", job.payload.get("offline", False), progress_callback=progress)
         import pandas as pd
-        from stock_scanner.calendar import calendar
+        from stock_scanner.calendar import calendar, session_ready_at
         cutoff = (calendar().session_close(pd.Timestamp(session))+pd.Timedelta(minutes=rules.settlement_minutes)).isoformat()
         result["provenance"] = {"mode": planning["mode"], "job_id": job.id, "knowledge_cutoff": cutoff,
+                                "market_close_at_utc": calendar().session_close(pd.Timestamp(session)).isoformat(),
+                                "provider_ready_at_utc": session_ready_at(pd.Timestamp(session), rules.settlement_minutes,
+                                                                          context.settings.market_data_ready_time).isoformat(),
                                 "rules_hash": hashlib.sha256(json.dumps(asdict(rules), sort_keys=True).encode()).hexdigest(),
                                 "signal_origin": "observed_live" if planning["mode"] == "live" else "reconstructed"}
         from stock_scanner.storage import atomic_json
@@ -87,6 +90,9 @@ def scan(context, adapter=None):
 
 
 def handle(context):
+    if context.job.kind == "sec_sync":
+        from ...services.sec_research import sync
+        return sync(context)
     if context.job.kind == "scan":
         return scan(context)
     if context.job.kind == "weekly":

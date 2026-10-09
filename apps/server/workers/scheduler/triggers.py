@@ -45,7 +45,7 @@ def next_occurrence(trigger, after, settings):
     if trigger["type"] == "market_close":
         candidate = after
         for _ in range(10):
-            next_ = next_run(candidate, settings.settlement_minutes)
+            next_ = next_run(candidate, settings.settlement_minutes, settings.market_data_ready_time)
             at = datetime.fromisoformat(next_["run_at_utc"])
             session = pd.Timestamp(next_["session"])
             following = calendar().next_session(session)

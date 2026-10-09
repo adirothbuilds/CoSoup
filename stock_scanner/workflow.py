@@ -94,6 +94,8 @@ def daily(state, rules, now=None, offline=False, with_research=True, recheck_res
                                       valid_fraction=valid_count / len(results))
             report["reason_counts"] = dict(counts)
             report["filter_counts"] = dict(Counter(k for r in results for k in r.get("failed_filters", [])))
+            from .analytics import breadth
+            report["market_breadth"] = breadth(results, session)
             if data_failure_count / len(results) > rules.max_data_error_fraction or not valid_count:
                 report["status"] = "blocked_quality"
                 report["errors"].append("Data failure fraction exceeded configured limit or no valid histories remain")
@@ -102,6 +104,9 @@ def daily(state, rules, now=None, offline=False, with_research=True, recheck_res
                 rank = lambda r: (r["rs_excess"], r["volume_ratio"], r["symbol"])
                 report["candidates"] = sorted((r for r in results if r["eligible"]), key=rank, reverse=True)
                 report["near_breakouts"] = sorted((r for r in results if r["near_breakout"]), key=rank, reverse=True)
+                report["screening_review"] = sorted(
+                    (r for r in results if r["data_valid"] and not r["eligible"] and not r["near_breakout"]),
+                    key=lambda r: (len(r["failed_filters"]), -r["rs_excess"], r["symbol"]))[:20]
                 if with_research and client is not None:
                     report["research_run"]["status"] = "running"
                     researcher = Researcher(client, session, recheck_research, knowledge_cutoff=knowledge_cutoff)

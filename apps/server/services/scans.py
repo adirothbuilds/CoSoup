@@ -14,10 +14,11 @@ from .jobs import owned
 def plan(db, storage, settings, owner, request):
     rule = owned(db, Rule, request["rules_id"], owner) if request.get("rules_id") else None
     rules = Rules(**rule.values) if rule else Rules(settlement_minutes=settings.settlement_minutes)
-    latest = expected_session(settlement_minutes=rules.settlement_minutes)
+    latest = expected_session(settlement_minutes=rules.settlement_minutes,
+                              data_ready_time=settings.market_data_ready_time)
     start, end = request.get("start_date") or latest, request.get("end_date") or latest
     if start > end or end > latest:
-        raise ServiceError("invalid_date_range", "Range must end on or before the latest eligible completed session", 422)
+        raise ServiceError("invalid_date_range", "Range must end on or before the latest provider-ready completed session", 422)
     cal = calendar()
     try:
         requested = [x.date().isoformat() for x in cal.sessions_in_range(start, end)]
@@ -45,4 +46,6 @@ def plan(db, storage, settings, owner, request):
             "warmup_start": min(required), "required_sessions": sorted(required), "hot_sessions": hot,
             "cold_sessions": cold, "missing_sessions": missing, "rules": rules.__dict__, "mode": mode,
             "estimated_minimum_grouped_requests": len(missing),
+            "latest_provider_ready_session": latest,
+            "data_ready_time_new_york": settings.market_data_ready_time,
             "estimate_note": "Dated listing/split pagination and research add requests; older history entitlement is not guaranteed"}

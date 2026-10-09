@@ -3,6 +3,7 @@ import fcntl
 import json
 import math
 import os
+import re
 import time
 import urllib.error
 import urllib.request
@@ -21,6 +22,31 @@ class SecRedirects(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
+def validate_sec_user_agent(value):
+    """Validate a truthful contact header without including its value in errors."""
+    if (not isinstance(value, str) or not 8 <= len(value) <= 512
+            or any(ord(char) < 32 or ord(char) > 126 for char in value)
+            or not re.search(r"\S+\s+[^\s<>@]+@[^\s<>@]+\.[A-Za-z]{2,}", value)
+            or "noreply" in value.lower()):
+        raise ValueError("Set SEC_USER_AGENT to an application name and a reachable contact email in private configuration")
+    return value
+
+
+def sec_user_agent():
+    """The file takes precedence so ambient shell values cannot replace deployment identity."""
+    path = os.environ.get("SEC_USER_AGENT_FILE")
+    if path:
+        try:
+            with Path(path).open("rb") as stream:
+                data = stream.read(513)
+            value = data.decode("ascii")
+        except (OSError, UnicodeError):
+            raise ValueError("SEC contact configuration is unavailable; prepare the private deployment before syncing") from None
+    else:
+        value = os.environ.get("SEC_USER_AGENT", "")
+    return validate_sec_user_agent(value)
+
+
 def sec_company_facts(state, cik, as_of, recheck=False, opener=None):
     if not cik or not str(cik).isdigit():
         return {'error': {'provider': 'SEC', 'message': 'Issuer CIK unavailable'}}
@@ -33,9 +59,8 @@ def sec_company_facts(state, cik, as_of, recheck=False, opener=None):
     if blocked.exists() and not recheck:
         return {'error': read_json(blocked)}
     url = f'https://data.sec.gov/api/xbrl/companyfacts/CIK{cik:010d}.json'
-    request = urllib.request.Request(url, headers={
-        'User-Agent': os.environ.get('SEC_USER_AGENT', 'PersonalStockResearch/1.0 (https://github.com/adirothbuilds/stock-scanner)')})
     try:
+        request = urllib.request.Request(url, headers={'User-Agent': sec_user_agent()})
         # Share the same conservative request budget; credentials are not shared.
         with (state / 'rate-limit.lock').open('a+') as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)

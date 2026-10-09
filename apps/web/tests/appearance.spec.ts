@@ -60,10 +60,10 @@ test(
 );
 
 test(
-  "device reduced motion freezes the kitchen and switches to the static bowl",
+  "device reduced motion keeps the conversation usable and switches to the static bowl",
   { tag: "@appearance" },
   async ({ page }) => {
-    await expect(page.locator(".kitchen-scene canvas")).toBeVisible();
+    await expect(page.getByLabel("Message Steve")).toBeVisible();
     await page.emulateMedia({ reducedMotion: "reduce" });
     await expect(page.locator("html")).toHaveAttribute("data-motion", "off");
     await expect(
@@ -73,11 +73,7 @@ test(
       "src",
       "/mascots/bowl-poster.webp",
     );
-    const canvas = page.locator(".kitchen-scene canvas");
-    await page.waitForTimeout(200);
-    const frame = await canvas.getAttribute("data-frame");
-    await page.waitForTimeout(250);
-    expect(await canvas.getAttribute("data-frame")).toBe(frame);
+    await expect(page.getByLabel("Message Steve")).toBeEditable();
     await page.emulateMedia({ reducedMotion: "no-preference" });
     await expect(page.locator("html")).toHaveAttribute("data-motion", "on");
     await expect(
